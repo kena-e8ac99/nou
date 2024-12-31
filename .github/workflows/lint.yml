@@ -24,7 +24,7 @@ jobs:
           submodules: true
 
       - run: |
-          cat > .github/actionlint.yaml<< EOF
+          cat > actionlint.yml<< EOF
           self-hosted-runner:
             # Labels of self-hosted runner in array of string
             labels:
