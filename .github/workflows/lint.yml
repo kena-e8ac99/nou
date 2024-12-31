@@ -23,20 +23,13 @@ jobs:
           fetch-depth: 0
           submodules: true
 
-      - run: |
-          cat > actionlint.yml<< EOF
-          self-hosted-runner:
-            # Labels of self-hosted runner in array of string
-            labels:
-              - windows-2025
-          EOF
-
       - uses: super-linter/super-linter/slim@v7.2.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_CLANG_FORMAT: true
           VALIDATE_GITHUB_ACTIONS: true
+          GITHUB_ACTIONS_COMMAND_ARGS: 'label "windows-2025" is unknown'
           VALIDATE_GITLEAKS: true
           VALIDATE_MARKDOWN: true
           VALIDATE_MARKDOWN_PRETTIER: true
