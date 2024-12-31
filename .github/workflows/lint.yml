@@ -58,7 +58,7 @@ jobs:
           languages: c-cpp
 
       # build
-      - run: CXX=g++-13 meson setup build
+      - run: CXX=g++-14 meson setup build
       - run: meson compile -C build
 
       # analyze
