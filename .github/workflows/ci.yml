@@ -1,0 +1,135 @@
+name: ci
+
+on:
+  push:
+    branches: main
+  pull_request:
+    branches: main
+
+permissions: {}
+
+jobs:
+  linux_debug:
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    steps:
+      # setup
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.7'
+
+      - run: sudo apt install lcov
+      - run: pip3 install meson
+      - run: pip3 install ninja
+
+      # build
+      - run: CXX=g++-14 meson setup build -v -Dbuildtype=debug -Db_coverage=true
+      - run: meson compile -C build -v
+
+      # run tests
+      - run: meson test -C build -v
+
+      # coverage
+      - run: mkdir coverage
+      - run: lcov -c -d . -o coverage/lcov.info
+      - run: lcov -r coverage/lcov.info "/usr*" "*test/lib/ut*" -o coverage/lcov.info
+
+  linux_release:
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    steps:
+      # setup
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.7'
+
+      - run: pip3 install meson
+      - run: pip3 install ninja
+
+      # build
+      - run: CXX=g++-14 meson setup build -v -Dbuildtype=release
+      - run: meson compile -C build -v
+
+      # run tests
+      - run: meson test -C build -v
+
+  macos:
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        buildtypes: ['debug', 'release']
+
+    permissions:
+      contents: read
+
+    steps:
+      # setup
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.7'
+
+      - run: pip3 install meson
+      - run: pip3 install ninja
+
+      # build
+      - run: CXX=$(brew --prefix llvm@18)/bin/clang++ meson setup build -v -Dbuildtype=${{ matrix.buildtypes }}
+      - run: meson compile -C build -v
+
+      # run tests
+      - run: meson test -C build -v
+
+  windows:
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        buildtypes: ['debug', 'release']
+
+    permissions:
+      contents: read
+
+    steps:
+      # setup
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.7'
+
+      - run: pip3 install meson
+      - run: pip3 install ninja
+
+      - uses: microsoft/setup-msbuild@v2
+
+      # build
+      - run: meson setup build -v -Dbuildtype=${{ matrix.buildtypes }}
+      - run: meson compile -C build -v
+
+      # run tests
+      - run: meson test -C build -v
+
