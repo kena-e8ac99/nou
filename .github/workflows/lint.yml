@@ -1,6 +1,8 @@
 name: lint
 
 on:
+  push:
+    branches: main
   pull_request:
     branches: main
 
@@ -20,6 +22,14 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
+
+      - run: |
+          cat > .github/actionlint.yaml<< EOF
+          self-hosted-runner:
+            # Labels of self-hosted runner in array of string
+            labels:
+              - windows-2025
+          EOF
 
       - uses: super-linter/super-linter/slim@v7.2.1
         env:
