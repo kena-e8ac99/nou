@@ -48,7 +48,7 @@ jobs:
           submodules: true
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '>=3.7'
       - run: pip3 install meson
       - run: pip3 install ninja
 
