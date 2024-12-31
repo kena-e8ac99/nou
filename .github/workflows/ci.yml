@@ -41,9 +41,9 @@ jobs:
       # run tests
       - run: meson test -C build -v
 
-  macos:
+  mac:
     timeout-minutes: 5
-    runs-on: macos-15-large
+    runs-on: macos-15
 
     strategy:
       matrix:
@@ -74,7 +74,7 @@ jobs:
 
   windows:
     timeout-minutes: 5
-    runs-on: windows-2025
+    runs-on: windows-2022
 
     strategy:
       matrix:
@@ -95,8 +95,6 @@ jobs:
 
       - run: pip3 install meson
       - run: pip3 install ninja
-
-      - uses: microsoft/setup-msbuild@v2
 
       # build
       - run: meson setup build -Dbuildtype=${{ matrix.buildtypes }}
