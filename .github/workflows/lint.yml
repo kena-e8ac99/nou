@@ -29,7 +29,7 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_CLANG_FORMAT: true
           VALIDATE_GITHUB_ACTIONS: true
-          GITHUB_ACTIONS_COMMAND_ARGS: 'label "windows-2025" is unknown'
+          GITHUB_ACTIONS_COMMAND_ARGS: -ignore 'label "windows-2025" is unknown'
           VALIDATE_GITLEAKS: true
           VALIDATE_MARKDOWN: true
           VALIDATE_MARKDOWN_PRETTIER: true
