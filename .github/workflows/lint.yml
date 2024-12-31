@@ -69,3 +69,31 @@ jobs:
       # analyze
       - uses: github/codeql-action/analyze@v3
 
+  clang-tidy-review:
+    if: ${{ github.event_name == 'pull_request' }}
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.7'
+      - run: pip3 install meson
+      - run: pip3 install ninja
+
+      # build
+      - run: CXX=g++-14 meson setup build
+      - run: meson compile -C build
+
+      # run clang-tidy-review
+      - uses: ZedThree/clang-tidy-review@e005a6ddf5cc4884b4bcab9930df255438183fd1 # v0.20.1
+        with:
+          build_dir: build
+          clang_tidy_version: 18
+
