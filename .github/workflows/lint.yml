@@ -1,0 +1,71 @@
+name: lint
+
+on:
+  push:
+    branches: main
+  pull_request:
+    branches: main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  superlinter:
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      statuses: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - uses: super-linter/super-linter/slim@v7.2.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_CLANG_FORMAT: true
+          VALIDATE_GITHUB_ACTIONS: true
+          GITHUB_ACTIONS_COMMAND_ARGS: -ignore 'label "windows-2025" is unknown'
+          VALIDATE_GITLEAKS: true
+          VALIDATE_MARKDOWN: true
+          VALIDATE_MARKDOWN_PRETTIER: true
+          VALIDATE_NATURAL_LANGUAGE: true
+
+  codeql:
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.7'
+      - run: pip3 install meson
+      - run: pip3 install ninja
+
+      # init
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+
+      # build
+      - run: CXX=g++-14 meson setup build
+      - run: meson compile -C build
+
+      # analyze
+      - uses: github/codeql-action/analyze@v3
+

@@ -1,0 +1,108 @@
+name: ci
+
+on:
+  push:
+    branches: main
+  pull_request:
+    branches: main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  linux:
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        buildtypes: ['debug', 'release']
+
+    permissions:
+      contents: read
+
+    steps:
+      # setup
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.7'
+
+      - run: pip3 install meson
+      - run: pip3 install ninja
+
+      # build
+      - run: CXX=g++-14 meson setup build -Dbuildtype=${{ matrix.buildtypes }}
+      - run: meson compile -C build -v
+
+      # run tests
+      - run: meson test -C build -v
+
+  mac:
+    timeout-minutes: 5
+    runs-on: macos-15
+
+    strategy:
+      matrix:
+        buildtypes: ['debug', 'release']
+
+    permissions:
+      contents: read
+
+    steps:
+      # setup
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.7'
+
+      - run: pip3 install meson
+      - run: pip3 install ninja
+
+      # build
+      - run: CXX=$(brew --prefix llvm@18)/bin/clang++ meson setup build -Dbuildtype=${{ matrix.buildtypes }}
+      - run: meson compile -C build -v
+
+      # run tests
+      - run: meson test -C build -v
+
+  windows:
+    timeout-minutes: 5
+    runs-on: windows-2025
+
+    strategy:
+      matrix:
+        buildtypes: ['debug', 'release']
+
+    permissions:
+      contents: read
+
+    steps:
+      # setup
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.7'
+
+      - run: pip3 install meson
+      - run: pip3 install ninja
+
+      # build
+      - run: meson setup build -Dbuildtype=${{ matrix.buildtypes }}
+      - run: meson compile -C build -v
+
+      # run tests
+      - run: meson test -C build -v
+
