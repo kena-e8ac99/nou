@@ -31,7 +31,7 @@ jobs:
       - run: pip3 install ninja
 
       # build
-      - run: CXX=g++-14 meson setup build -v -Dbuildtype=debug -Db_coverage=true
+      - run: CXX=g++-14 meson setup build -Dbuildtype=debug -Db_coverage=true
       - run: meson compile -C build -v
 
       # run tests
@@ -63,7 +63,7 @@ jobs:
       - run: pip3 install ninja
 
       # build
-      - run: CXX=g++-14 meson setup build -v -Dbuildtype=release
+      - run: CXX=g++-14 meson setup build -Dbuildtype=release
       - run: meson compile -C build -v
 
       # run tests
@@ -94,7 +94,7 @@ jobs:
       - run: pip3 install ninja
 
       # build
-      - run: CXX=$(brew --prefix llvm@18)/bin/clang++ meson setup build -v -Dbuildtype=${{ matrix.buildtypes }}
+      - run: CXX=$(brew --prefix llvm@18)/bin/clang++ meson setup build -Dbuildtype=${{ matrix.buildtypes }}
       - run: meson compile -C build -v
 
       # run tests
@@ -127,7 +127,7 @@ jobs:
       - uses: microsoft/setup-msbuild@v2
 
       # build
-      - run: meson setup build -v -Dbuildtype=${{ matrix.buildtypes }}
+      - run: meson setup build -Dbuildtype=${{ matrix.buildtypes }}
       - run: meson compile -C build -v
 
       # run tests
