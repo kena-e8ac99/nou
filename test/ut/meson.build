@@ -8,7 +8,8 @@ foreach name: unit_tests
     executable(
       'ut_' + name,
       name + '.cc',
-      include_directories: inc_dirs
+      include_directories: inc_dirs,
+      dependencies: [test_dep],
     )
   )
 endforeach
