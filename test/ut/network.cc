@@ -1,4 +1,4 @@
-#include "nou/network/network.hpp"
+#include "nou/detail/network/network.hpp"
 
 #include "boost/ut.hpp"
 

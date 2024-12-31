@@ -1,3 +1,3 @@
 #pragma once
 
-#include "nou/network/network.hpp"
+#include "nou/detail/network/network.hpp"
