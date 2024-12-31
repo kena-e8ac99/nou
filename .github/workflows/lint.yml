@@ -24,7 +24,6 @@ jobs:
       - uses: super-linter/super-linter/slim@v7.2.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_CPP: true
           VALIDATE_CLANG_FORMAT: true
