@@ -40,7 +40,7 @@ jobs:
       - run: meson compile -C build
 
       # clang-tidy
-      - run: gh pr diff --name-only | $(brew --prefix llvm@18)/bin/clang-tidy -p build --config-file=.clang-tidy --export-fixes=clang-tidy-result-fixes.yml
+      - run: gh pr diff --name-only | $(brew --prefix llvm@18)/bin/clang-tidy -p build --config-file='.clang-tidy' --export-fixes=clang-tidy-result-fixes.yml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
