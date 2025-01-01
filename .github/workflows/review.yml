@@ -43,6 +43,7 @@ jobs:
       - run: gh pr diff ${{ github.ref_name }} --name-only | "$(brew --prefix llvm@18)"/bin/run-clang-tidy -p build -config-file=.clang-tidy -export-fixes=clang-tidy-result-fixes.yml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PATH: ${PATH}:$(brew --prefix llvm@18)/bin/clang-tidy
 
       - uses: platisd/clang-tidy-pr-comments@a8811fa17cd6bd02c52a3791b44f9840777e396a # v1.6.1
         with:
