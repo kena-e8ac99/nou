@@ -2,5 +2,9 @@
 
 #include "boost/ut.hpp"
 
-auto main() -> int { return 0; }
+auto main() -> int {
+  int* i = new int(5);
+  *i = 6;
+  return 0;
+}
 
