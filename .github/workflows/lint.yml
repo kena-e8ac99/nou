@@ -30,6 +30,7 @@ jobs:
       - uses: super-linter/super-linter/slim@v7.2.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LINTER_RULES_PATH: ./
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_CLANG_FORMAT: true
           VALIDATE_GITHUB_ACTIONS: true
