@@ -88,7 +88,7 @@ jobs:
       - run: pip3 install ninja
 
       # build
-      - run: CXX=$(brew --prefix llvm@18)/bin/clang++ meson setup build -Dbuildtype=${{ matrix.buildtypes }}
+      - run: CXX=$(brew --prefix llvm@18)/bin/clang++ meson setup build
       - run: meson compile -C build
 
       # clang-tidy
