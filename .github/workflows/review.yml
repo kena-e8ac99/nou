@@ -19,7 +19,7 @@ jobs:
   clang-tidy:
     if: ${{ github.event_name == 'pull_request' }}
     timeout-minutes: 5
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
 
     permissions:
       pull-requests: write
@@ -36,14 +36,13 @@ jobs:
       - run: pip3 install ninja
 
       # build
-      - run: CXX=$(brew --prefix llvm@18)/bin/clang++ meson setup build
+      - run: CXX=g++-14 meson setup build
       - run: meson compile -C build
 
       # clang-tidy
-      - run: gh pr diff ${{ github.ref_name }} --name-only | "$(brew --prefix llvm@18)"/bin/run-clang-tidy -p build -config-file=.clang-tidy -export-fixes=clang-tidy-result-fixes.yml
+      - run: gh pr diff ${{ github.ref_name }} --name-only | run-clang-tidy-18 -p build -config-file=.clang-tidy -export-fixes=clang-tidy-result-fixes.yml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PATH: ${PATH}:$(brew --prefix llvm@18)/bin/clang-tidy
 
       - uses: platisd/clang-tidy-pr-comments@a8811fa17cd6bd02c52a3791b44f9840777e396a # v1.6.1
         with:
