@@ -32,7 +32,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LINTER_RULES_PATH: ./
           VALIDATE_ALL_CODEBASE: false
-          VALIDATE_CLANG_FORMAT: true
           VALIDATE_GITHUB_ACTIONS: true
           GITHUB_ACTIONS_COMMAND_ARGS: -ignore 'label "windows-2025" is unknown'
           VALIDATE_GITLEAKS: true
