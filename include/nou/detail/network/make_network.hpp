@@ -10,12 +10,12 @@
 namespace nou {
 
 template <layer Layer>
-constexpr auto make_network(Layer&& layer) -> decltype(auto) {
+[[nodiscard]] constexpr auto make_network(Layer&& layer) noexcept {
   return network{std::forward<Layer>(layer)};
 }
 
 template <layer Layer, class... Ts>
-constexpr auto make_network(Layer&& first, Ts&&... trailing) -> decltype(auto) {
+[[nodiscard]] constexpr auto make_network(Layer&& first, Ts&&... trailing) {
   return []<class Self, class Layers, class T, class... Us>(
              this Self&& self, Layers&& layers, T&& target, Us&&... trailing)
     requires layer<decltype(auto(target))> ||
