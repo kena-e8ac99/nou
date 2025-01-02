@@ -20,12 +20,11 @@ template <layer Layer, class... Ts>
              this Self&& self, Layers&& layers, T&& target, Us&&... trailing)
     requires layer<decltype(auto(target))> ||
              builder<decltype(auto(target)),
-                     typename decltype(auto(
-                         std::get<std::tuple_size_v<Layers> - 1>(
-                             layers)))::output_extents_type>
+                     decltype(std::get<std::tuple_size_v<Layers> - 1>(layers)
+                                  .output_extents())>
   {
     auto concat = [](auto&& layers, auto&& target) {
-      if constexpr (::nou::layer<decltype(auto(target))>) {
+      if constexpr (layer<decltype(auto(target))>) {
         return std::tuple_cat(std::forward<Layers>(layers),
                               std::tuple{std::forward<T>(target)});
       } else {
