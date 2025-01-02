@@ -1,8 +1,8 @@
 #include "nou/detail/layer/is_connectable.hpp"
 
-#include <boost/ut.hpp>
 #include <concepts>
 
+#include "boost/ut.hpp"
 #include "nou/detail/utility/extents.hpp"
 
 namespace mock {
