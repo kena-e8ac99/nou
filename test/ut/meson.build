@@ -1,5 +1,6 @@
 unit_tests = [
-  'network'
+  'network',
+  'is_connectable',
 ]
 
 foreach name: unit_tests
