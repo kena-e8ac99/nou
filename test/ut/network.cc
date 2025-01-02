@@ -23,7 +23,8 @@ struct layer {
 };
 
 template <std::unsigned_integral auto... Ns>
-constexpr auto operator==(const layer<Ns...>&, const layer<Ns...>&) -> bool {
+[[nodiscard]] constexpr auto operator==(const layer<Ns...>&,
+                                        const layer<Ns...>&) noexcept -> bool {
   return true;
 }
 

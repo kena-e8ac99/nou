@@ -12,13 +12,13 @@ namespace nou {
 
 template <layer... Layers>
   requires is_connectable_v<Layers...>
-class network {
+class network final {
  public:
   // Constructors
   network() = default;
 
   template <class... Ts>
-  explicit constexpr network(Ts&&... layers) noexcept
+  [[nodiscard]] explicit constexpr network(Ts&&... layers) noexcept
       : layers_{std::make_tuple(std::forward<Ts>(layers)...)} {}
 
   // Operator overloads
