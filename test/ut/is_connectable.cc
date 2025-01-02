@@ -11,6 +11,15 @@ template <std::unsigned_integral auto Input, std::unsigned_integral auto Output>
 struct layer {
   using input_extents_type = nou::extents<float, Input>;
   using output_extents_type = nou::extents<float, Output>;
+
+  [[nodiscard]] constexpr auto input_extents() const noexcept
+      -> input_extents_type {
+    return {};
+  }
+  [[nodiscard]] constexpr auto output_extents() const noexcept
+      -> output_extents_type {
+    return {};
+  }
 };
 
 }  // namespace mock
