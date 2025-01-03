@@ -3,6 +3,7 @@
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <optional>
 #include <tuple>
 
 namespace nou {
@@ -20,7 +21,11 @@ class extents final {
   static constexpr auto rank() noexcept -> rank_type { return sizeof...(Ns); }
 
   // Member functions
-  static constexpr auto static_extent(rank_type rank) noexcept -> size_type {
+  static constexpr auto static_extent(rank_type rank) noexcept
+      -> std::optional<size_type> {
+    if (rank >= extents<T, Ns...>::rank()) {
+      return std::nullopt;
+    }
     static constexpr std::array extents_{Ns...};
     return extents_[rank];
   }
