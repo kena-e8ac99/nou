@@ -4,8 +4,6 @@ unit_tests = [
   'make_network',
 ]
 
-nomalloc = environment({'MALLOC_PERTURB_': '0'})
-
 foreach name: unit_tests
   test(
     'ut_' + name,
@@ -14,8 +12,7 @@ foreach name: unit_tests
       name + '.cc',
       include_directories: inc_dirs,
       dependencies: [test_dep],
-    ),
-    env: nomalloc,
+    )
   )
 endforeach
 
