@@ -8,6 +8,8 @@ if(NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_EXTENSIONS OFF)
 endif()
 
+set(CMAKE_CXX_SCAN_FOR_MODULES ON)
+
 add_library(nou)
 target_sources(nou PUBLIC FILE_SET CXX_MODULES FILES include/nou/nou.cppm)
 
