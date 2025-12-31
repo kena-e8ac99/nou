@@ -1,0 +1,19 @@
+---
+Checks: "-*,\
+bugprone-*,\
+cert-*,\
+cppcoreguidelines-*,\
+clang-analyzer-*,\
+google-*,\
+misc-*,\
+modernize-*,\
+performance-*,\
+readability-*,\
+"
+WarningsAsErrors: '*'
+ExcludeHeaderFilterRegex: ''
+FormatStyle:     file
+CheckOptions:    {}
+SystemHeaders:   false
+...
+
