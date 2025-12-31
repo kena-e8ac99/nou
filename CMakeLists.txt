@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.28)
+
+project(nou LANGUAGES CXX)
+
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 20)
+  option(CMAKE_CXX_STANDARD_REQUIRED ON)
+  option(CMAKE_CXX_EXTENSIONS OFF)
+endif()
+
+add_library(nou)
+target_sources(nou
+  PUBLIC
+    FILE_SET cxx_modules TYPE CXX_MODULES FILES
+      include/nou/nou.cppm
+)
+
+if(PROJECT_IS_TOP_LEVEL)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wshadow)
+  endif()
+  enable_testing()
+  add_subdirectory(test)
+endif()
+
