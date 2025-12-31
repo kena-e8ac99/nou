@@ -9,11 +9,7 @@ if(NOT DEFINED CMAKE_CXX_STANDARD)
 endif()
 
 add_library(nou)
-target_sources(nou
-  PUBLIC
-    FILE_SET cxx_modules TYPE CXX_MODULES FILES
-      include/nou/nou.cppm
-)
+target_sources(nou PUBLIC FILE_SET CXX_MODULES FILES include/nou/nou.cppm)
 
 if(PROJECT_IS_TOP_LEVEL)
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
