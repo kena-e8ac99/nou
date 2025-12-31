@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure CMake
+        run: >
+          cmake -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -S.
+      - name: Build
+        run: cmake --build build --config Debug -j4 --verbose
+      - name: Test
+        run: ctest --test-dir build --build-config Debug -j4 --verbose
+      - name: Run clang-tidy(macos only)
+        run: |
+          export PATH=$(brew --prefix llvm)/bin:$PATH
+          run-clang-tidy -p build test
+
