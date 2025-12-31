@@ -1,4 +1,4 @@
-name: ci
+name: Linux
 
 on:
   pull_request:
@@ -7,14 +7,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      include:
+        - cxx: g++-14
+        - cxx: clang++-18
     steps:
       - uses: actions/checkout@v6
       - name: Configure CMake
         run: >
-          cmake -Bbuild -GNinja -DCMAKE_CXX_COMPILER=g++-14
+          cmake -Bbuild -GNinja -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
           -DCMAKE_BUILD_TYPE=Debug -S.
       - name: Build
         run: cmake --build build --config Debug -j4 --verbose
       - name: Test
         run: ctest --test-dir build --build-config Debug -j4 --verbose
+      - name: Run clang-tidy
+        if: matrix.cxx == 'clang++-18'
+        run: run-clang-tidy-18 -p build test
 
