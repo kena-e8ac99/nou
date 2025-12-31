@@ -43,3 +43,5 @@
 # Build files
 build
 
+# Cache files
+.cache
