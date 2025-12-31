@@ -9,9 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      include:
-        - cxx: g++-14
-        - cxx: clang++-18
+      matrix:
+        cxx: [g++-14, clang++-18]
     steps:
       - uses: actions/checkout@v6
       - name: Configure CMake
