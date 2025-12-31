@@ -23,5 +23,5 @@ jobs:
         run: ctest --test-dir build --build-config Debug -j4 --verbose
       - name: Run clang-tidy
         if: matrix.cxx == 'clang++-18'
-        run: run-clang-tidy-18 -p build test
+        run: run-clang-tidy-18 -p build include
 
