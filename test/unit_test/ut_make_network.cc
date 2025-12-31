@@ -1,3 +1,3 @@
 import nou;
 
-int main() { return 0; }
+auto main() -> int { return 0; }
