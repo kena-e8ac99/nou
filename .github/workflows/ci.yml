@@ -12,7 +12,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            cxx: g++
+            cxx: g++14
             build_type: Debug
           - os: macos-latest
             cxx: clang++
