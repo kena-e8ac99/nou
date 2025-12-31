@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Configure CMake
         run: >
-          cmake -Bbuild -DNinja -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          cmake -Bbuild -GNinja -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S.
       - name: Build
         run: cmake --build build --config ${{ matrix.build_type }} -j4 --verbose
