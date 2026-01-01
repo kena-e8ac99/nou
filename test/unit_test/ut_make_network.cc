@@ -41,5 +41,9 @@ auto main() -> int {
     static_assert(not make_network_compile_success<>);
   };
 
+  "model construction fails if only one layer is passed"_test = []() -> void {
+    static_assert(not make_network_compile_success<layer>);
+  };
+
   return 0;
 }

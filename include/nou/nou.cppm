@@ -20,7 +20,7 @@ export template <class T>
 concept network = is_network_v<T>;
 
 export template <class... Ts>
-requires (sizeof...(Ts) != 0)
+requires (sizeof...(Ts) > 1)
 constexpr auto make_network(Ts... layers) -> std::tuple<Ts...> {
   return std::tuple{std::move(layers)...};
 }
