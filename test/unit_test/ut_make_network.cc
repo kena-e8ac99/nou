@@ -5,6 +5,10 @@ import nou;
 
 namespace {
 
+template <class... Ts>
+concept make_network_compile_success =
+    requires(Ts... args) { nou::make_network(args...); };
+
 struct layer {
   int value{};  // NOLINT(misc-non-private-member-variables-in-classes)
 };
@@ -31,6 +35,10 @@ auto main() -> int {
     static_assert(network == std::tuple{layer1, layer2});
     static_assert(not is_same_instance(std::get<0>(network), layer1));
     static_assert(not is_same_instance(std::get<1>(network), layer2));
+  };
+
+  "model construction fails if no arguments"_test = []() -> void {
+    static_assert(not make_network_compile_success<>);
   };
 
   return 0;
