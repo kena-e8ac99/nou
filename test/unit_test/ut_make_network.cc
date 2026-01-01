@@ -1,5 +1,37 @@
 #include <boost/ut.hpp>
+#include <tuple>
 
 import nou;
 
-auto main() -> int { return 0; }
+namespace {
+
+struct layer {
+  int value{};  // NOLINT(misc-non-private-member-variables-in-classes)
+};
+
+constexpr auto operator==(layer lhs, layer rhs) -> bool {
+  return lhs.value == rhs.value;
+}
+
+constexpr auto is_same_instance(const layer& lhs, const layer& rhs) -> bool {
+  return &lhs == &rhs;
+}
+
+constexpr nou::layer auto layer1 = layer{.value = 1};
+constexpr nou::layer auto layer2 = layer{.value = 2};
+
+}  // namespace
+
+auto main() -> int {
+  using namespace boost::ut;  // NOLINT(google-build-using-namespace)
+
+  "construct model from two or more layers"_test = []() -> void {
+    constexpr nou::network auto network = nou::make_network(layer1, layer2);
+
+    static_assert(network == std::tuple{layer1, layer2});
+    static_assert(not is_same_instance(std::get<0>(network), layer1));
+    static_assert(not is_same_instance(std::get<1>(network), layer2));
+  };
+
+  return 0;
+}
