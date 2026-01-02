@@ -2,6 +2,7 @@ module;
 
 #include <concepts>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 export module nou;
@@ -10,26 +11,21 @@ namespace nou {
 
 export template <std::integral auto N>
   requires(N > 0)
-struct shape {};
-
-template <class... Ts>
-struct is_layer : public std::false_type {};
-
-template <class T, std::integral auto InputSize, std::integral auto OutputSize>
-  requires(InputSize > 0 and OutputSize > 0)
-struct is_layer<T, shape<InputSize>, shape<OutputSize>>
-    : public std::true_type {};
-
-template <class T>
-  requires requires {
-    typename T::input_shape_type;
-    typename T::output_shape_type;
-  }
-struct is_layer<T> : public is_layer<T, typename T::input_shape_type,
-                                     typename T::output_shape_type> {};
+struct shape {
+  using type = decltype(N);
+  static constexpr type value = N;
+};
 
 export template <class T>
-concept layer = is_layer<T>::value;
+concept layer = requires {
+  typename T::real_type;
+  typename T::input_shape_type;
+  typename T::output_shape_type;
+  requires std::same_as<typename T::input_shape_type,
+                        shape<T::input_shape_type::value>>;
+  requires std::same_as<typename T::output_shape_type,
+                        shape<T::output_shape_type::value>>;
+};
 
 template <class T>
 constexpr bool is_network_v = false;
@@ -40,13 +36,19 @@ constexpr bool is_network_v<std::tuple<Ts...>> = true;
 export template <class T>
 concept network = is_network_v<T>;
 
-template <class... Ts>
-struct is_same_shape : public std::false_type {};
-
-template <std::integral auto N, std::integral auto M>
-  requires(static_cast<std::common_type_t<decltype(N), decltype(M)>>(N) ==
-           static_cast<std::common_type_t<decltype(N), decltype(M)>>(M))
-struct is_same_shape<shape<N>, shape<M>> : public std::true_type {};
+struct build_impl {
+  template <class RealType, class Shape, class T>
+  constexpr auto operator()(T&& builder) const noexcept(noexcept(
+      std::forward<T>(builder).template build<RealType, Shape>())) -> layer auto
+    requires layer<
+        decltype(std::forward<T>(builder).template build<RealType, Shape>())>
+  {
+    return std::forward<T>(builder).template build<RealType, Shape>();
+  }
+};
+inline namespace cpo {
+inline constexpr auto build = build_impl{};
+}
 
 template <class... Ts>
 struct is_connectable : public std::false_type {};
@@ -54,16 +56,59 @@ struct is_connectable : public std::false_type {};
 template <layer Layer>
 struct is_connectable<Layer> : public std::true_type {};
 
-template <layer First, layer Second, layer... Rest>
-  requires is_same_shape<typename First::output_shape_type,
-                         typename Second::input_shape_type>::value
+template <layer First, layer Second, class... Rest>
+  requires(
+      static_cast<std::common_type_t<typename First::output_shape_type::type,
+                                     typename Second::input_shape_type::type>>(
+          First::output_shape_type::value) ==
+      static_cast<std::common_type_t<typename First::output_shape_type::type,
+                                     typename Second::input_shape_type::type>>(
+          Second::input_shape_type::value))
 struct is_connectable<First, Second, Rest...>
     : public is_connectable<Second, Rest...> {};
 
-export template <layer T, layer... Ts>
-  requires(sizeof...(Ts) >= 1) and is_connectable<T, Ts...>::value
-constexpr auto make_network(T first, Ts... layers) -> std::tuple<T, Ts...> {
-  return std::tuple{std::move(first), std::move(layers)...};
+template <layer First, class Second, class... Rest>
+  requires requires {
+    {
+      build.template
+      operator()<typename First::real_type, typename First::output_shape_type>(
+          std::declval<Second>())
+    } -> layer;
+  }
+struct is_connectable<First, Second, Rest...>
+    : public is_connectable<
+          First,
+          decltype(build.template operator()<typename First::real_type,
+                                             typename First::output_shape_type>(
+              std::declval<Second>())),
+          Rest...> {};
+
+export template <layer T, class... Ts>
+  requires(sizeof...(Ts) >= 1 && is_connectable<T, Ts...>::value)
+constexpr auto make_network(T first, Ts... rest) -> network auto {
+  constexpr auto builder = [&]<std::size_t I, class U>(U& tuple) -> layer auto {
+    if constexpr (I == 0) {
+      return std::move(std::get<I>(tuple));
+    } else {
+      if constexpr (layer<std::tuple_element_t<I, U>>) {
+        return std::move(std::get<I>(tuple));
+      } else {
+        using prev_layer_type = std::tuple_element_t<I - 1, U>;
+        using real_type = prev_layer_type::real_type;
+        using input_shape_type = prev_layer_type::output_shape_type;
+
+        return build.template operator()<real_type, input_shape_type>(
+            std::move(std::get<I>(tuple)));
+      }
+    }
+  };
+  return [&]<class U, std::size_t... Is>(U tuple, std::index_sequence<Is...>)
+             -> network auto {
+    return std::tuple{[&]() -> layer auto {
+      return builder.template operator()<Is>(tuple);
+    }()...};
+  }(std::tuple{std::move(first), std::move(rest)...},
+             std::make_index_sequence<sizeof...(Ts) + 1>{});
 }
 
 }  // namespace nou
