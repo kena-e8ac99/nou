@@ -59,5 +59,10 @@ auto main() -> int {
     static_assert(not make_network_compile_success<not_layer, layer<1, 2>>);
   };
 
+  "model construction fails if layer's input/output shape does not match"_test =
+      []() -> void {
+    static_assert(not make_network_compile_success<layer<1, 2>, layer<3, 4>>);
+  };
+
   return 0;
 }

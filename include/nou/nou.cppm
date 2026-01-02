@@ -40,8 +40,28 @@ constexpr bool is_network_v<std::tuple<Ts...>> = true;
 export template <class T>
 concept network = is_network_v<T>;
 
-export template <layer T, class... Ts>
-  requires(sizeof...(Ts) >= 1)
+template <class... Ts>
+struct is_same_shape : public std::false_type {};
+
+template <std::integral auto N, std::integral auto M>
+  requires(static_cast<std::common_type_t<decltype(N), decltype(M)>>(N) ==
+           static_cast<std::common_type_t<decltype(N), decltype(M)>>(M))
+struct is_same_shape<shape<N>, shape<M>> : public std::true_type {};
+
+template <class... Ts>
+struct is_connectable : public std::false_type {};
+
+template <layer Layer>
+struct is_connectable<Layer> : public std::true_type {};
+
+template <layer First, layer Second, layer... Rest>
+  requires is_same_shape<typename First::output_shape_type,
+                         typename Second::input_shape_type>::value
+struct is_connectable<First, Second, Rest...>
+    : public is_connectable<Second, Rest...> {};
+
+export template <layer T, layer... Ts>
+  requires(sizeof...(Ts) >= 1) and is_connectable<T, Ts...>::value
 constexpr auto make_network(T first, Ts... layers) -> std::tuple<T, Ts...> {
   return std::tuple{std::move(first), std::move(layers)...};
 }
