@@ -64,6 +64,20 @@ constexpr auto layer_builder_free_func2 = layer_builder_free_func<
     std::remove_cvref_t<decltype(layer2)>::output_shape_type::value>{
     .value = layer2.value};
 
+template <std::integral auto OutputSize>
+struct layer_builder_hidden_friend {
+  double value{};
+
+  template <class RealType, class Shape>
+  [[nodiscard]] friend constexpr auto build(
+      const layer_builder_hidden_friend<OutputSize>& builder)
+      -> layer<Shape::value, OutputSize> {
+    return {.value = static_cast<RealType>(builder.value)};
+  }
+};
+constexpr auto layer_builder_hidden_friend2 = layer_builder_hidden_friend<
+    std::remove_cvref_t<decltype(layer2)>::output_shape_type::value>{
+    .value = layer2.value};
 }  // namespace
 
 auto main() -> int {
@@ -102,6 +116,12 @@ auto main() -> int {
 
   "construct model from layer builders (free function)"_test = []() -> void {
     static_assert(nou::make_network(layer1, layer_builder_free_func2) ==
+                  std::tuple{layer1, layer2});
+  };
+
+  "construct model from layer builders (hidden friend function)"_test =
+      []() -> void {
+    static_assert(nou::make_network(layer1, layer_builder_hidden_friend2) ==
                   std::tuple{layer1, layer2});
   };
 
