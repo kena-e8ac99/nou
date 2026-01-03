@@ -141,7 +141,7 @@ struct is_connectable<First, Second, Rest...>
  * @tparam Second The type of the second layer or layer builder.
  * @tparam Rest The types of the remaining layers or layer builders.
  *
- * @param first The layer for the first layer in the network.
+ * @param first The first layer in the network.
  * @param second The layer or layer builder for the second layer in the network.
  * @param rest The layers or layer builders for the remaining layers in the
  * network.
