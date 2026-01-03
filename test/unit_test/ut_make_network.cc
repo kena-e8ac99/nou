@@ -32,6 +32,7 @@ constexpr auto is_same_instance(const layer<N, M>& lhs, const layer<N, M>& rhs)
 
 constexpr nou::layer auto layer1 = layer<1, 2>{.value = 1};
 constexpr nou::layer auto layer2 = layer<2, 3>{.value = 2};
+constexpr nou::layer auto layer3 = layer<3, 4>{.value = 3};
 
 struct not_layer {};
 
@@ -83,12 +84,22 @@ constexpr auto layer_builder_hidden_friend2 = layer_builder_hidden_friend<
 auto main() -> int {
   using namespace boost::ut;  // NOLINT(google-build-using-namespace)
 
-  "construct model from two or more layers"_test = []() -> void {
+  "construct model from two layers"_test = []() -> void {
     constexpr nou::network auto network = nou::make_network(layer1, layer2);
 
     static_assert(network == std::tuple{layer1, layer2});
     static_assert(not is_same_instance(std::get<0>(network), layer1));
     static_assert(not is_same_instance(std::get<1>(network), layer2));
+  };
+
+  "construct model from three or more layers"_test = []() -> void {
+    constexpr nou::network auto network =
+        nou::make_network(layer1, layer2, layer3);
+
+    static_assert(network == std::tuple{layer1, layer2, layer3});
+    static_assert(not is_same_instance(std::get<0>(network), layer1));
+    static_assert(not is_same_instance(std::get<1>(network), layer2));
+    static_assert(not is_same_instance(std::get<2>(network), layer3));
   };
 
   "model construction fails if no arguments"_test = []() -> void {

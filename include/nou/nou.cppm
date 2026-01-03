@@ -94,14 +94,15 @@ struct is_connectable<First, Second, Rest...>
               std::declval<Second>())),
           Rest...> {};
 
-export template <layer T, class... Ts>
-  requires(sizeof...(Ts) >= 1 && is_connectable<T, Ts...>::value)
-constexpr auto make_network(T first, Ts... rest) -> network auto {
-  constexpr auto builder = []<std::size_t I, class U>(U& tuple) -> layer auto {
-    if constexpr (layer<std::tuple_element_t<I, U>>) {
+export template <layer First, class Second, class... Rest>
+  requires(is_connectable<First, Second, Rest...>::value)
+constexpr auto make_network(First first, Second second, Rest... rest) -> network
+    auto {
+  constexpr auto builder = []<std::size_t I, class T>(T& tuple) -> layer auto {
+    if constexpr (layer<std::tuple_element_t<I, T>>) {
       return std::move(std::get<I>(tuple));
     } else {
-      using prev_layer_type = std::tuple_element_t<I - 1, U>;
+      using prev_layer_type = std::tuple_element_t<I - 1, T>;
       using real_type = prev_layer_type::real_type;
       using input_shape_type = prev_layer_type::output_shape_type;
 
@@ -114,8 +115,8 @@ constexpr auto make_network(T first, Ts... rest) -> network auto {
     return std::tuple{[&]() -> layer auto {
       return builder.template operator()<Is>(tuple);
     }()...};
-  }(std::tuple{std::move(first), std::move(rest)...},
-             std::make_index_sequence<sizeof...(Ts) + 1>{});
+  }(std::tuple{std::move(first), std::move(second), std::move(rest)...},
+             std::make_index_sequence<sizeof...(Rest) + 2>{});
 }
 
 }  // namespace nou
