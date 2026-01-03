@@ -190,10 +190,11 @@ struct is_connectable<First, Second, Rest...>
  *   - **`Next` satisfies the `layer` concept**:
  *     `Prev::output_shape_type` must match `Next::input_shape_type`.
  *   - **`Next` is a layer builder**:
- *     `build<Prev::real_type, Prev::output_shape_type>(Next)` customization
- *     point object must be invocable and return a type satisfying the `layer`
- *     concept.
- *     The resulting layer becomes the next `Prev` in the sequence.
+ *     `build` customization point object must be invocable and return a type
+ *     satisfying the `layer` concept. The resulting layer becomes the next
+ *     `Prev` in the sequence.
+ *
+ * @see build for details on how layer builders are invoked.
  */
 export template <layer First, class Second, class... Rest>
   requires(is_connectable<First, Second, Rest...>::value)
