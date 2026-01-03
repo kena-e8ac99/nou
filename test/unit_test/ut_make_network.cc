@@ -79,6 +79,15 @@ struct layer_builder_hidden_friend {
 constexpr auto layer_builder_hidden_friend2 = layer_builder_hidden_friend<
     std::remove_cvref_t<decltype(layer2)>::output_shape_type::value>{
     .value = layer2.value};
+
+struct not_layer_builder {};
+
+struct incorrect_layer_builder {
+  template <class RealType, class Shape>
+  [[nodiscard]] constexpr auto build() const -> not_layer {
+    return {};
+  }
+};
 }  // namespace
 
 auto main() -> int {
@@ -115,25 +124,44 @@ auto main() -> int {
     static_assert(not make_network_compile_success<not_layer, layer<1, 2>>);
   };
 
-  "model construction fails if layer's input/output shape does not match"_test =
+  "model construction fails if layer's input shape does not match"_test =
       []() -> void {
     static_assert(not make_network_compile_success<layer<1, 2>, layer<3, 4>>);
   };
 
-  "construct model from layer builders (member function)"_test = []() -> void {
+  "construct model from [layer, layer builder(member function)]"_test =
+      []() -> void {
     static_assert(nou::make_network(layer1, layer_builder_member2) ==
                   std::tuple{layer1, layer2});
   };
 
-  "construct model from layer builders (free function)"_test = []() -> void {
+  "construct model from [layer, layer builder(free function)]"_test =
+      []() -> void {
     static_assert(nou::make_network(layer1, layer_builder_free_func2) ==
                   std::tuple{layer1, layer2});
   };
 
-  "construct model from layer builders (hidden friend function)"_test =
+  "construct model from [layer, layer builder(hidden friend function)]"_test =
       []() -> void {
     static_assert(nou::make_network(layer1, layer_builder_hidden_friend2) ==
                   std::tuple{layer1, layer2});
+  };
+
+  "construct model from [layer, layer builder, layer]"_test = []() -> void {
+    static_assert(nou::make_network(layer1, layer_builder_member2, layer3) ==
+                  std::tuple{layer1, layer2, layer3});
+  };
+
+  "model construction fails if second is not layer or layer builder"_test =
+      []() -> void {
+    static_assert(
+        not make_network_compile_success<layer<1, 2>, not_layer_builder>);
+  };
+
+  "model construction fails if layer builder returns not a layer"_test =
+      []() -> void {
+    static_assert(
+        not make_network_compile_success<layer<1, 2>, incorrect_layer_builder>);
   };
 
   return 0;
