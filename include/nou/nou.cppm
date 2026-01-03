@@ -52,9 +52,12 @@ concept layer = requires {
                         shape<T::output_shape_type::value>>;
 };
 
+// Internal helper: Type trait to detect if a type is a network (tuple of
+// layers). Primary template matches non-network types.
 template <class T>
 struct is_network : public std::false_type {};
 
+// Specialization matches tuples containing only layer types.
 template <layer... Ts>
 struct is_network<std::tuple<Ts...>> : public std::true_type {};
 
@@ -94,12 +97,20 @@ inline namespace cpo {
 inline constexpr auto build = build_impl{};
 }
 
+// Internal helper: Type trait to check if a sequence of layers/builders can be
+// connected to form a valid network. A builder is a type that can be converted
+// to a layer via the build CPO. Validates shape compatibility between
+// consecutive layers and ensures builders can be instantiated.
+// Primary template: No types or incompatible types cannot be connected.
 template <class... Ts>
 struct is_connectable : public std::false_type {};
 
+// Base case: A single layer is trivially connectable.
 template <layer Layer>
 struct is_connectable<Layer> : public std::true_type {};
 
+// Recursive case: Two consecutive layers can connect if their output/input
+// shapes match. Recursively checks the remaining layers.
 template <layer First, layer Second, class... Rest>
   requires(
       static_cast<std::common_type_t<typename First::output_shape_type::type,
@@ -111,6 +122,9 @@ template <layer First, layer Second, class... Rest>
 struct is_connectable<First, Second, Rest...>
     : public is_connectable<Second, Rest...> {};
 
+// Recursive case: A layer followed by a builder can connect if the builder
+// can be instantiated with the layer's real_type and output_shape_type.
+// The instantiated layer replaces the builder for further validation.
 template <layer First, class Second, class... Rest>
   requires requires {
     {
