@@ -86,7 +86,7 @@ struct is_connectable<First, Second, Rest...>
 export template <layer T, class... Ts>
   requires(sizeof...(Ts) >= 1 && is_connectable<T, Ts...>::value)
 constexpr auto make_network(T first, Ts... rest) -> network auto {
-  constexpr auto builder = [&]<std::size_t I, class U>(U& tuple) -> layer auto {
+  constexpr auto builder = []<std::size_t I, class U>(U& tuple) -> layer auto {
     if constexpr (layer<std::tuple_element_t<I, U>>) {
       return std::move(std::get<I>(tuple));
     } else {
