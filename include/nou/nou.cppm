@@ -98,7 +98,8 @@ inline constexpr auto build = build_impl{};
 }
 
 // Internal helper: Type trait to check if a sequence of layers/builders can be
-// connected to form a valid network. Validates shape compatibility between
+// connected to form a valid network. A builder is a type that can be converted
+// to a layer via the build CPO. Validates shape compatibility between
 // consecutive layers and ensures builders can be instantiated.
 // Primary template: No types or incompatible types cannot be connected.
 template <class... Ts>
