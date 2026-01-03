@@ -8,8 +8,8 @@ import nou;
 namespace {
 
 template <class... Ts>
-concept make_network_compile_success =
-    requires { nou::make_network(std::declval<Ts>()...); };
+concept compile_fail_make_network =
+    not requires { nou::make_network(std::declval<Ts>()...); };
 
 template <auto InputSize, auto OutputSize>
 struct layer {
@@ -112,21 +112,21 @@ auto main() -> int {
   };
 
   "model construction fails if no arguments"_test = []() -> void {
-    static_assert(not make_network_compile_success<>);
+    static_assert(compile_fail_make_network<>);
   };
 
   "model construction fails if only one layer is passed"_test = []() -> void {
-    static_assert(not make_network_compile_success<layer<1, 2>>);
+    static_assert(compile_fail_make_network<layer<1, 2>>);
   };
 
   "model construction fails if first argument is not layer"_test =
       []() -> void {
-    static_assert(not make_network_compile_success<not_layer, layer<1, 2>>);
+    static_assert(compile_fail_make_network<not_layer, layer<1, 2>>);
   };
 
   "model construction fails if layer's input shape does not match"_test =
       []() -> void {
-    static_assert(not make_network_compile_success<layer<1, 2>, layer<3, 4>>);
+    static_assert(compile_fail_make_network<layer<1, 2>, layer<3, 4>>);
   };
 
   "construct model from [layer, layer builder(member function)]"_test =
@@ -154,14 +154,13 @@ auto main() -> int {
 
   "model construction fails if second is not layer or layer builder"_test =
       []() -> void {
-    static_assert(
-        not make_network_compile_success<layer<1, 2>, not_layer_builder>);
+    static_assert(compile_fail_make_network<layer<1, 2>, not_layer_builder>);
   };
 
   "model construction fails if layer builder returns not a layer"_test =
       []() -> void {
     static_assert(
-        not make_network_compile_success<layer<1, 2>, incorrect_layer_builder>);
+        compile_fail_make_network<layer<1, 2>, incorrect_layer_builder>);
   };
 
   return 0;
