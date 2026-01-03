@@ -67,6 +67,40 @@ struct is_network<std::tuple<Ts...>> : public std::true_type {};
 export template <class T>
 concept network = is_network<T>::value;
 
+/**
+ * Customization point object for invoking layer builders.
+ *
+ * The `build_impl` customization point object provides a uniform interface for
+ * invoking layer builders in neural network construction. It supports multiple
+ * customization patterns, allowing users to define layer builders with either
+ * member functions or free/hidden friend functions.
+ *
+ * **Invocation Patterns:**
+ * 1. **Member function**: If the builder type `T` provides a member function
+ *    template `build<RealType, Shape>()`, it will be invoked as
+ *    `builder.build<RealType, Shape>()`.
+ * 2. **Free or hidden friend function**: If the builder type `T` does not
+ *    provide a member function but has a free function or hidden friend
+ *    function template `build<RealType, Shape>(builder)`, it will be invoked
+ *    via ADL (Argument Dependent Lookup).
+ *
+ * The customization point object is instantiated as the inline variable `build`
+ * in the `cpo` namespace, enabling convenient usage in network construction.
+ *
+ * @tparam RealType The numeric type used for computations (e.g., float, double).
+ * @tparam Shape A specialization of `shape` representing the input dimension
+ *               for the layer to be built.
+ * @tparam T The type of the layer builder object.
+ *
+ * @return A layer satisfying the `layer` concept with the specified `RealType`
+ *         and compatible shape dimensions.
+ *
+ * @note The returned layer's `input_shape_type` will typically match the
+ *       provided `Shape` template parameter, and its `output_shape_type` is
+ *       determined by the builder's implementation.
+ *
+ * @see make_network for how this CPO is used in network construction.
+ */
 struct build_impl {
   template <class RealType, class Shape, class T>
     requires requires {
