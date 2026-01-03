@@ -94,8 +94,43 @@ struct build_impl {
   }
 };
 inline namespace cpo {
+/**
+ * Customization point object for invoking layer builders.
+ *
+ * The `build` customization point object provides a uniform interface for
+ * invoking layer builders in neural network construction. It supports multiple
+ * customization patterns, allowing users to define layer builders with either
+ * member functions or free/hidden friend functions.
+ *
+ * **Invocation Patterns:**
+ * 1. **Member function**: If the builder type `T` provides a member function
+ *    template `build<RealType, Shape>()`, it will be invoked as
+ *    `builder.build<RealType, Shape>()`.
+ * 2. **Free or hidden friend function**: If the builder type `T` does not
+ *    provide a member function but has a free function or hidden friend
+ *    function template `build<RealType, Shape>(builder)`, it will be invoked
+ *    via ADL (Argument Dependent Lookup).
+ *
+ * The customization point object is instantiated as the inline variable `build`
+ * in the inline `cpo` namespace, enabling convenient usage in network
+ * construction.
+ *
+ * @tparam RealType The type used for computations (typically floating-point,
+ *                  but can be others)
+ * @tparam Shape A specialization of `shape` representing the input dimension
+ *               for the layer to be built.
+ * @tparam T The type of the layer builder object.
+ *
+ * @return A layer satisfying the `layer` concept.
+ *
+ * @note The returned layer's `input_shape_type` will typically match the
+ *       provided `Shape` template parameter, and its `output_shape_type` is
+ *       determined by the builder's implementation.
+ *
+ * @see make_network for how this CPO is used in network construction.
+ */
 inline constexpr auto build = build_impl{};
-}
+}  // namespace cpo
 
 // Internal helper: Type trait to check if a sequence of layers/builders can be
 // connected to form a valid network. A builder is a type that can be converted
@@ -169,10 +204,11 @@ struct is_connectable<First, Second, Rest...>
  *   - **`Next` satisfies the `layer` concept**:
  *     `Prev::output_shape_type` must match `Next::input_shape_type`.
  *   - **`Next` is a layer builder**:
- *     `build<Prev::real_type, Prev::output_shape_type>(Next)` customization
- *     point object must be invocable and return a type satisfying the `layer`
- *     concept.
- *     The resulting layer becomes the next `Prev` in the sequence.
+ *     `build` customization point object must be invocable and return a type
+ *     satisfying the `layer` concept. The resulting layer becomes the next
+ *     `Prev` in the sequence.
+ *
+ * @see build for details on how layer builders are invoked.
  */
 export template <layer First, class Second, class... Rest>
   requires(is_connectable<First, Second, Rest...>::value)
