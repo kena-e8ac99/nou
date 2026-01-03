@@ -9,6 +9,18 @@ export module nou;
 
 namespace nou {
 
+/**
+ * A compile-time shape descriptor template for neural network dimensions.
+ *
+ * This template struct represents a single dimension size in a neural network
+ * shape, constrained to positive integral values known at compile-time.
+ *
+ * The struct exposes the dimension value through:
+ * - `type`  : the type of the dimension constant (e.g., int)
+ * - `value` : the dimension size as a `constexpr` value
+ *
+ * @tparam N A positive integral constant representing the dimension size.
+ */
 export template <std::integral auto N>
   requires(N > 0)
 struct shape {
@@ -16,6 +28,18 @@ struct shape {
   static constexpr type value = N;
 };
 
+/**
+ * Specifies that a type can be used as a neural network layer.
+ *
+ * The layer concept specifies that a type provides the following member types
+ * required for neural network layers.
+ * - `real_type`: a type used for computations (typically floating-point, but
+ * can be others)
+ * - `input_shape_type`: a specialization of `shape`, representing the input
+ dimension of the layer
+ * - `output_shape_type`: a specialization of `shape`, representing the output
+ * dimension of the layer
+ */
 export template <class T>
 concept layer = requires {
   typename T::real_type;
@@ -97,29 +121,37 @@ struct is_connectable<First, Second, Rest...>
           Rest...> {};
 
 /**
- * Constructs a neural network from the provided layers.
+ * Constructs a neural network by composing layers or layer builders.
  *
- * This function accepts two or more layers or builders; any builder will be
- * invoked via the `build` CPO to produce layer (see \@pre), and the resulting
- * layer is then connected to form a network.
+ * This function constructs a neural network from a sequence of layers or layer
+ * builders. Each argument is processed in order:
+ * - If the argument is a layer, it is copied or moved directly into the
+ * network.
+ * - If the argument is a layer builder, it is instantiated by invoking the
+ * `build` customization point object with the previous layer's `real_type` and
+ * `output_shape_type` (see @pre).
  *
- * @param first The first layer to connect.
- * @param second The second layer to connect, or a builder that will produce a
- * layer when invoked by the `build` customization point object (CPO) with the
- * previous layer's real type and output shape.
- * @param rest The remaining layers or builders.
+ * @tparam First The type of the first layer.
+ * @tparam Second The type of the second layer or layer builder.
+ * @tparam Rest The types of the remaining layers or layer builders.
  *
- * @return A network constructed from the provided layers.
+ * @param first The layer for the first layer in the network.
+ * @param second The layer or layer builder for the second layer in the network.
+ * @param rest The layers or layer builders for the remaining layers in the
+ * network.
  *
- * @pre For each adjacent pair of arguments (Prev, Next), one of the following
- *      must hold:
- *      - `Next` satisfies the `layer` concept and
- * `Next::input_shape_type::value` is equal to `Prev::output_shape_type::value`.
- *      - `Next` is a builder type such that invoking the `build` CPO as
- *        `build<Prev::real_type, Prev::output_shape_type>(Next)` yields a
- * type satisfying the `layer` concept and having `input_shape_type::value`
- * equal to `Prev::output_shape_type::value`.
- * @post The returned value satisfies the `network` concept.
+ * @return A network object satisfying the `network` concept.
+ *
+ * @pre For each adjacent pair of arguments `(Prev, Next)`:
+ * - `Prev` must satisfy the `layer` concept
+ * - `Next` must satisfy one of the following:
+ *   - **`Next` satisfies the `layer` concept**:
+ *     `Prev::output_shape_type` must match `Next::input_shape_type`.
+ *   - **`Next` is a layer builder**:
+ *     `build<Prev::real_type, Prev::output_shape_type>(Next)` customization
+ *     point object must be invocable and return a type satisfying the `layer`
+ *     concept.
+ *     The resulting layer becomes the next `Prev` in the sequence.
  */
 export template <layer First, class Second, class... Rest>
   requires(is_connectable<First, Second, Rest...>::value)
