@@ -52,8 +52,8 @@ concept layer = requires {
                         shape<T::output_shape_type::value>>;
 };
 
-// Internal helper: Type trait to detect if a type is a network (tuple of layers).
-// Primary template matches non-network types.
+// Internal helper: Type trait to detect if a type is a network (tuple of
+// layers). Primary template matches non-network types.
 template <class T>
 struct is_network : public std::false_type {};
 
