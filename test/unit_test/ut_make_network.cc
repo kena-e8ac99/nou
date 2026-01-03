@@ -36,7 +36,7 @@ constexpr nou::layer auto layer2 = layer<2, 3>{.value = 2};
 struct not_layer {};
 
 template <std::integral auto OutputSize>
-struct layer_builder {
+struct layer_builder_member {
   template <class RealType, class Shape>
   [[nodiscard]] constexpr auto build() const
       -> layer<Shape::value, OutputSize> {
@@ -45,7 +45,22 @@ struct layer_builder {
   double value{};
 };
 
-constexpr auto layer_builder2 = layer_builder<
+constexpr auto layer_builder_member2 = layer_builder_member<
+    std::remove_cvref_t<decltype(layer2)>::output_shape_type::value>{
+    .value = layer2.value};
+
+template <std::integral auto OutputSize>
+struct layer_builder_free_func {
+  double value{};
+};
+
+template <class RealType, class Shape, std::integral auto OutputSize>
+[[nodiscard]] constexpr auto build(
+    const layer_builder_free_func<OutputSize>& builder)
+    -> layer<Shape::value, OutputSize> {
+  return {.value = static_cast<RealType>(builder.value)};
+}
+constexpr auto layer_builder_free_func2 = layer_builder_free_func<
     std::remove_cvref_t<decltype(layer2)>::output_shape_type::value>{
     .value = layer2.value};
 
@@ -81,7 +96,12 @@ auto main() -> int {
   };
 
   "construct model from layer builders (member function)"_test = []() -> void {
-    static_assert(nou::make_network(layer1, layer_builder2) ==
+    static_assert(nou::make_network(layer1, layer_builder_member2) ==
+                  std::tuple{layer1, layer2});
+  };
+
+  "construct model from layer builders (free function)"_test = []() -> void {
+    static_assert(nou::make_network(layer1, layer_builder_free_func2) ==
                   std::tuple{layer1, layer2});
   };
 
