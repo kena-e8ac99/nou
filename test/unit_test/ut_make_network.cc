@@ -19,13 +19,15 @@ struct layer {
   real_type value{};  // NOLINT(misc-non-private-member-variables-in-classes)
 };
 
-template <auto N, auto M>
-constexpr auto operator==(layer<N, M> lhs, layer<N, M> rhs) -> bool {
+template <auto InputSize, auto OutputSize>
+constexpr auto operator==(layer<InputSize, OutputSize> lhs,
+                          layer<InputSize, OutputSize> rhs) -> bool {
   return lhs.value == rhs.value;
 }
 
-template <auto N, auto M>
-constexpr auto is_same_instance(const layer<N, M>& lhs, const layer<N, M>& rhs)
+template <auto InputSize, auto OutputSize>
+constexpr auto is_same_reference(const layer<InputSize, OutputSize>& lhs,
+                                 const layer<InputSize, OutputSize>& rhs)
     -> bool {
   return &lhs == &rhs;
 }
@@ -95,7 +97,7 @@ struct incorrect_layer_builder {
   template <class RealType, class Shape>
   [[nodiscard]] constexpr auto build() const -> not_layer {
     return {};
-  }
+  }  // namespace
 };
 }  // namespace
 
@@ -109,9 +111,9 @@ auto main() -> int {
     static_assert(network ==
                   std::tuple{layer_input1_output2, layer_input2_output3});
     static_assert(
-        not is_same_instance(std::get<0>(network), layer_input1_output2));
+        not is_same_reference(std::get<0>(network), layer_input1_output2));
     static_assert(
-        not is_same_instance(std::get<1>(network), layer_input2_output3));
+        not is_same_reference(std::get<1>(network), layer_input2_output3));
   };
 
   "construct model from three or more layers"_test = []() -> void {
@@ -122,11 +124,11 @@ auto main() -> int {
                                         layer_input2_output3,
                                         layer_input3_output4});
     static_assert(
-        not is_same_instance(std::get<0>(network), layer_input1_output2));
+        not is_same_reference(std::get<0>(network), layer_input1_output2));
     static_assert(
-        not is_same_instance(std::get<1>(network), layer_input2_output3));
+        not is_same_reference(std::get<1>(network), layer_input2_output3));
     static_assert(
-        not is_same_instance(std::get<2>(network), layer_input3_output4));
+        not is_same_reference(std::get<2>(network), layer_input3_output4));
   };
 
   "model construction fails if first argument is not layer"_test =
