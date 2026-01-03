@@ -96,6 +96,31 @@ struct is_connectable<First, Second, Rest...>
               std::declval<Second>())),
           Rest...> {};
 
+/**
+ * Constructs a neural network from the provided layers.
+ *
+ * This function accepts two or more layers or builders; any builder will be
+ * invoked via the `build` CPO to produce layer (see \@pre), and the resulting
+ * layer is then connected to form a network.
+ *
+ * @param first The first layer to connect.
+ * @param second The second layer to connect, or a builder that will produce a
+ * layer when invoked by the `build` customization point object (CPO) with the
+ * previous layer's real type and output shape.
+ * @param rest The remaining layers or builders.
+ *
+ * @return A network constructed from the provided layers.
+ *
+ * @pre For each adjacent pair of arguments (Prev, Next), one of the following
+ *      must hold:
+ *      - `Next` satisfies the `layer` concept and
+ * `Next::input_shape_type::value` is equal to `Prev::output_shape_type::value`.
+ *      - `Next` is a builder type such that invoking the `build` CPO as
+ *        `build<Prev::real_type, Prev::output_shape_type>(Next)` yields a
+ * type satisfying the `layer` concept and having `input_shape_type::value`
+ * equal to `Prev::output_shape_type::value`.
+ * @post The returned value satisfies the `network` concept.
+ */
 export template <layer First, class Second, class... Rest>
   requires(is_connectable<First, Second, Rest...>::value)
 constexpr auto make_network(First first, Second second, Rest... rest) -> network
