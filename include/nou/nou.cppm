@@ -37,7 +37,7 @@ struct shape {
  * - `real_type`: a type used for computations (typically floating-point, but
  * can be others)
  * - `input_shape_type`: a specialization of `shape`, representing the input
- dimension of the layer
+ *   dimension of the layer
  * - `output_shape_type`: a specialization of `shape`, representing the output
  * dimension of the layer
  */
