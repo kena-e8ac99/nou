@@ -38,19 +38,21 @@ concept network = is_network_v<T>;
 
 struct build_impl {
   template <class RealType, class Shape, class T>
-  constexpr auto operator()(T&& builder) const noexcept(noexcept(
-      std::forward<T>(builder).template build<RealType, Shape>())) -> layer auto
-    requires layer<
-        decltype(std::forward<T>(builder).template build<RealType, Shape>())>
-  {
+    requires requires {
+      { std::declval<T>().template build<RealType, Shape>() } -> layer;
+    }
+  constexpr auto operator()(T&& builder) const noexcept(
+      noexcept(std::forward<T>(builder).template build<RealType, Shape>()))
+      -> layer auto {
     return std::forward<T>(builder).template build<RealType, Shape>();
   }
 
   template <class RealType, class Shape, class T>
     requires(
         !requires { std::declval<T>().template build<RealType, Shape>(); } &&
-        requires { build<RealType, Shape>(std::declval<T>()); } &&
-        layer<decltype(build<RealType, Shape>(std::declval<T>()))>)
+        requires {
+          { build<RealType, Shape>(std::declval<T>()) } -> layer;
+        })
   constexpr auto operator()(T&& builder) const
       noexcept(noexcept(build<RealType, Shape>(std::forward<T>(builder))))
           -> layer auto {
