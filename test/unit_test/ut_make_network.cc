@@ -30,9 +30,15 @@ constexpr auto is_same_instance(const layer<N, M>& lhs, const layer<N, M>& rhs)
   return &lhs == &rhs;
 }
 
-constexpr nou::layer auto layer1 = layer<1, 2>{.value = 1};
-constexpr nou::layer auto layer2 = layer<2, 3>{.value = 2};
-constexpr nou::layer auto layer3 = layer<3, 4>{.value = 3};
+using layer_input1_output2_t = layer<1, 2>;
+using layer_input2_output3_t = layer<2, 3>;
+using layer_input3_output4_t = layer<3, 4>;
+constexpr nou::layer auto layer_input1_output2 =
+    layer_input1_output2_t{.value = 1};
+constexpr nou::layer auto layer_input2_output3 =
+    layer_input2_output3_t{.value = 2};
+constexpr nou::layer auto layer_input3_output4 =
+    layer_input3_output4_t{.value = 3};
 
 struct not_layer {};
 
@@ -46,9 +52,10 @@ struct layer_builder_member {
   double value{};
 };
 
-constexpr auto layer_builder_member2 = layer_builder_member<
-    std::remove_cvref_t<decltype(layer2)>::output_shape_type::value>{
-    .value = layer2.value};
+constexpr auto layer_builder_member_output3 =
+    layer_builder_member<std::remove_cvref_t<
+        decltype(layer_input2_output3)>::output_shape_type::value>{
+        .value = layer_input2_output3.value};
 
 template <std::integral auto OutputSize>
 struct layer_builder_free_func {
@@ -61,9 +68,10 @@ template <class RealType, class Shape, std::integral auto OutputSize>
     -> layer<Shape::value, OutputSize> {
   return {.value = static_cast<RealType>(builder.value)};
 }
-constexpr auto layer_builder_free_func2 = layer_builder_free_func<
-    std::remove_cvref_t<decltype(layer2)>::output_shape_type::value>{
-    .value = layer2.value};
+constexpr auto layer_builder_free_func_output3 =
+    layer_builder_free_func<std::remove_cvref_t<
+        decltype(layer_input2_output3)>::output_shape_type::value>{
+        .value = layer_input2_output3.value};
 
 template <std::integral auto OutputSize>
 struct layer_builder_hidden_friend {
@@ -76,9 +84,10 @@ struct layer_builder_hidden_friend {
     return {.value = static_cast<RealType>(builder.value)};
   }
 };
-constexpr auto layer_builder_hidden_friend2 = layer_builder_hidden_friend<
-    std::remove_cvref_t<decltype(layer2)>::output_shape_type::value>{
-    .value = layer2.value};
+constexpr auto layer_builder_hidden_friend_output3 =
+    layer_builder_hidden_friend<std::remove_cvref_t<
+        decltype(layer_input2_output3)>::output_shape_type::value>{
+        .value = layer_input2_output3.value};
 
 struct not_layer_builder {};
 
@@ -94,21 +103,30 @@ auto main() -> int {
   using namespace boost::ut;  // NOLINT(google-build-using-namespace)
 
   "construct model from two layers"_test = []() -> void {
-    constexpr nou::network auto network = nou::make_network(layer1, layer2);
+    constexpr nou::network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
 
-    static_assert(network == std::tuple{layer1, layer2});
-    static_assert(not is_same_instance(std::get<0>(network), layer1));
-    static_assert(not is_same_instance(std::get<1>(network), layer2));
+    static_assert(network ==
+                  std::tuple{layer_input1_output2, layer_input2_output3});
+    static_assert(
+        not is_same_instance(std::get<0>(network), layer_input1_output2));
+    static_assert(
+        not is_same_instance(std::get<1>(network), layer_input2_output3));
   };
 
   "construct model from three or more layers"_test = []() -> void {
-    constexpr nou::network auto network =
-        nou::make_network(layer1, layer2, layer3);
+    constexpr nou::network auto network = nou::make_network(
+        layer_input1_output2, layer_input2_output3, layer_input3_output4);
 
-    static_assert(network == std::tuple{layer1, layer2, layer3});
-    static_assert(not is_same_instance(std::get<0>(network), layer1));
-    static_assert(not is_same_instance(std::get<1>(network), layer2));
-    static_assert(not is_same_instance(std::get<2>(network), layer3));
+    static_assert(network == std::tuple{layer_input1_output2,
+                                        layer_input2_output3,
+                                        layer_input3_output4});
+    static_assert(
+        not is_same_instance(std::get<0>(network), layer_input1_output2));
+    static_assert(
+        not is_same_instance(std::get<1>(network), layer_input2_output3));
+    static_assert(
+        not is_same_instance(std::get<2>(network), layer_input3_output4));
   };
 
   "model construction fails if no arguments"_test = []() -> void {
@@ -116,51 +134,59 @@ auto main() -> int {
   };
 
   "model construction fails if only one layer is passed"_test = []() -> void {
-    static_assert(compile_fail_make_network<layer<1, 2>>);
+    static_assert(compile_fail_make_network<layer_input1_output2_t>);
   };
 
   "model construction fails if first argument is not layer"_test =
       []() -> void {
-    static_assert(compile_fail_make_network<not_layer, layer<1, 2>>);
+    static_assert(compile_fail_make_network<not_layer, layer_input1_output2_t>);
   };
 
   "model construction fails if layer's input shape does not match"_test =
       []() -> void {
-    static_assert(compile_fail_make_network<layer<1, 2>, layer<3, 4>>);
+    static_assert(compile_fail_make_network<layer_input1_output2_t,
+                                            layer_input3_output4_t>);
   };
 
   "construct model from [layer, layer builder(member function)]"_test =
       []() -> void {
-    static_assert(nou::make_network(layer1, layer_builder_member2) ==
-                  std::tuple{layer1, layer2});
+    static_assert(
+        nou::make_network(layer_input1_output2, layer_builder_member_output3) ==
+        std::tuple{layer_input1_output2, layer_input2_output3});
   };
 
   "construct model from [layer, layer builder(free function)]"_test =
       []() -> void {
-    static_assert(nou::make_network(layer1, layer_builder_free_func2) ==
-                  std::tuple{layer1, layer2});
+    static_assert(nou::make_network(layer_input1_output2,
+                                    layer_builder_free_func_output3) ==
+                  std::tuple{layer_input1_output2, layer_input2_output3});
   };
 
   "construct model from [layer, layer builder(hidden friend function)]"_test =
       []() -> void {
-    static_assert(nou::make_network(layer1, layer_builder_hidden_friend2) ==
-                  std::tuple{layer1, layer2});
+    static_assert(nou::make_network(layer_input1_output2,
+                                    layer_builder_hidden_friend_output3) ==
+                  std::tuple{layer_input1_output2, layer_input2_output3});
   };
 
   "construct model from [layer, layer builder, layer]"_test = []() -> void {
-    static_assert(nou::make_network(layer1, layer_builder_member2, layer3) ==
-                  std::tuple{layer1, layer2, layer3});
+    static_assert(nou::make_network(layer_input1_output2,
+                                    layer_builder_member_output3,
+                                    layer_input3_output4) ==
+                  std::tuple{layer_input1_output2, layer_input2_output3,
+                             layer_input3_output4});
   };
 
   "model construction fails if second is not layer or layer builder"_test =
       []() -> void {
-    static_assert(compile_fail_make_network<layer<1, 2>, not_layer_builder>);
+    static_assert(
+        compile_fail_make_network<layer_input1_output2_t, not_layer_builder>);
   };
 
   "model construction fails if layer builder returns not a layer"_test =
       []() -> void {
-    static_assert(
-        compile_fail_make_network<layer<1, 2>, incorrect_layer_builder>);
+    static_assert(compile_fail_make_network<layer_input1_output2_t,
+                                            incorrect_layer_builder>);
   };
 
   return 0;
