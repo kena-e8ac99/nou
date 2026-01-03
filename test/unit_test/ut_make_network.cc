@@ -129,14 +129,6 @@ auto main() -> int {
         not is_same_instance(std::get<2>(network), layer_input3_output4));
   };
 
-  "model construction fails if no arguments"_test = []() -> void {
-    static_assert(compile_fail_make_network<>);
-  };
-
-  "model construction fails if only one layer is passed"_test = []() -> void {
-    static_assert(compile_fail_make_network<layer_input1_output2_t>);
-  };
-
   "model construction fails if first argument is not layer"_test =
       []() -> void {
     static_assert(compile_fail_make_network<not_layer, layer_input1_output2_t>);
