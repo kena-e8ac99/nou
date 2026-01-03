@@ -97,7 +97,7 @@ struct incorrect_layer_builder {
   template <class RealType, class Shape>
   [[nodiscard]] constexpr auto build() const -> not_layer {
     return {};
-  }  // namespace
+  }
 };
 }  // namespace
 
