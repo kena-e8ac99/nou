@@ -57,6 +57,12 @@ struct is_network : public std::false_type {};
 template <layer... Ts>
 struct is_network<std::tuple<Ts...>> : public std::true_type {};
 
+/**
+ * Specifies that a type can be used as a neural network.
+ *
+ * The network concept specifies that a type is a tuple-like container of
+ * `layers`.
+ */
 export template <class T>
 concept network = is_network<T>::value;
 
