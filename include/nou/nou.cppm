@@ -52,13 +52,13 @@ concept layer = requires {
 };
 
 template <class T>
-constexpr bool is_network_v = false;
+struct is_network : public std::false_type {};
 
 template <layer... Ts>
-constexpr bool is_network_v<std::tuple<Ts...>> = true;
+struct is_network<std::tuple<Ts...>> : public std::true_type {};
 
 export template <class T>
-concept network = is_network_v<T>;
+concept network = is_network<T>::value;
 
 struct build_impl {
   template <class RealType, class Shape, class T>
