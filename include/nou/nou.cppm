@@ -270,20 +270,23 @@ export inline constexpr auto propagate = propagate_impl{};
 }  // namespace cpo
 
 template <std::size_t I, class Network, class Input>
-  requires(I < std::tuple_size_v<Network>) &&
+  requires(I < std::tuple_size_v<std::remove_cvref_t<Network>>) &&
           network<std::remove_cvref_t<Network>> && requires {
             {
-              propagate(std::declval<std::tuple_element_t<I, Network>>(),
-                        std::declval<std::remove_cvref_t<Input>>())
+              propagate(
+                  std::declval<
+                      std::tuple_element_t<I, std::remove_cvref_t<Network>>>(),
+                  std::declval<std::remove_cvref_t<Input>>())
             };
           }
 // NOLINTNEXTLINE(misc-use-internal-linkage)
-constexpr auto predict_impl(Network& network, Input&& input) noexcept(noexcept(
+constexpr auto predict_impl(Network&& network, Input&& input) noexcept(noexcept(
     propagate(std::get<I>(network), std::forward<Input>(input)))) -> auto {
   auto intermediate =
       propagate(std::get<I>(network), std::forward<Input>(input));
-  if constexpr (I + 1 < std::tuple_size_v<Network>) {
-    return predict_impl<I + 1>(network, std::move(intermediate));
+  if constexpr (I + 1 < std::tuple_size_v<std::remove_cvref_t<Network>>) {
+    return predict_impl<I + 1>(std::forward<Network>(network),
+                               std::move(intermediate));
   } else {
     return intermediate;
   }
@@ -291,8 +294,9 @@ constexpr auto predict_impl(Network& network, Input&& input) noexcept(noexcept(
 
 export template <class Network, class Input>
   requires network<std::remove_cvref_t<Network>>
-constexpr auto predict(Network& network, Input&& input) -> auto {
-  return predict_impl<0>(network, std::forward<Input>(input));
+constexpr auto predict(Network&& network, Input&& input) -> auto {
+  return predict_impl<0>(std::forward<Network>(network),
+                         std::forward<Input>(input));
 }
 
 }  // namespace nou

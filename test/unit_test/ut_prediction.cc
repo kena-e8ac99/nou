@@ -6,6 +6,10 @@
 import nou;
 
 namespace {
+template <class... Ts>
+concept compile_fail_predict =
+    not requires { nou::predict(std::declval<Ts>()...); };
+
 template <auto InputSize, auto OutputSize, class RealType>
 struct layer {
   using input_shape_type = nou::shape<InputSize>;
@@ -67,6 +71,18 @@ auto main() -> int {
     constexpr nou::network auto network =
         nou::make_network(layer_input1_output2, layer_input2_output3);
     static_assert(nou::predict(network, input1) == layer_input2_output3.output);
+  };
+
+  "predict const lvalue network"_test = []() -> void {
+    constexpr nou::network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    static_assert(nou::predict(network, input1) == layer_input2_output3.output);
+  };
+
+  "predict rvalue network"_test = []() -> void {
+    constexpr auto output = nou::predict(
+        nou::make_network(layer_input1_output2, layer_input2_output3), input1);
+    static_assert(output == layer_input2_output3.output);
   };
 
   return 0;
