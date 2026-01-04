@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-**nou** is a modern C++20 compile-time neural network layer composition library using C++ modules. It provides compile-time type-safe construction of neural networks through concept-based design and customization point objects (CPOs).
+**nou** is a modern C++20 compile-time neural network library using C++ modules. It provides compile-time type-safe neural network functionality through concept-based design and customization point objects (CPOs).
 
 ## Architecture & Core Concepts
 
 ### Module-Based Design
 
 - **Single Module Entry**: [include/nou/nou.cppm](../include/nou/nou.cppm) - exports all public APIs
-- **Key Concepts**: `shape<N>` (dimension descriptor), `layer` (layer interface), `network` (tuple of layers)
+- **Key Concepts**: `shape<N>` (dimension descriptor), `layer` (layer interface), `network` (tuple-like container of layers)
 - **Central Function**: `make_network()` - composes layers or builders into type-safe networks
 - **CPO Pattern**: `build()` customization point supports member functions, free functions, and hidden friend functions
 
@@ -60,17 +60,6 @@ run-clang-tidy-18 -p build include
 - Internal helpers use unnamed namespace, not `export`
 - Template specializations stay internal unless exported
 
-### Concept Definition Pattern
-
-```cpp
-export template <class T>
-concept layer_like = requires {
-  typename T::real_type;
-  typename T::input_shape_type;
-  typename T::output_shape_type;
-};
-```
-
 ### Builder Implementation Options
 
 All three patterns are tested and supported:
@@ -102,9 +91,9 @@ struct MyBuilder {
 
 ### External Dependencies
 
+- **No External Libraries other than test framework**: All core functionality is implemented from scratch
 - **Boost.UT** (v2.3.1): Header-only test framework, fetched at configure time
-- **Standard Library**: `<concepts>`, `<tuple>`, `<type_traits>`, `<utility>`
-- **No External Libraries**: No neural network libraries; this is foundational composition logic
+- **Standard Library**: C++20 standard library features only
 
 ### CMake Configuration
 
@@ -129,7 +118,10 @@ The `is_connectable` trait recursively validates that:
 
 ### Why Compile-Time?
 
-All computations are `constexpr` to enable zero-runtime-overhead composition. Networks are fully defined and optimized at compile time.
+All computations are `constexpr` to ensure:
+- Zero runtime overhead
+- Type safety at compile time
+- Early error detection during compilation
 
 ### Adding New Tests
 
