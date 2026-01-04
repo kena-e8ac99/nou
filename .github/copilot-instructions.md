@@ -99,7 +99,7 @@ struct MyBuilder {
 
 - **Language**: C++20 required, enforced by CMakeLists.txt
 - **Compiler Warnings**: All warnings as errors (`-Werror` on GCC/Clang, `/WX` on MSVC)
-- **Clang-Tidy**: Enabled in CI for clang++-18; all checks enabled with warnings-as-errors
+- **Clang-Tidy**: Enabled in CI for clang++-18; specific check categories enabled (bugprone, cert, cppcoreguidelines, clang-analyzer, google, misc, modernize, performance, readability) with warnings-as-errors
 - **Modules**: Uses CMake FILE_SET CXX_MODULES target property
 
 ### CI/CD
