@@ -41,6 +41,15 @@ constexpr nou::layer auto layer_input2_output3 =
     layer<2, 3, double>{.output = {4.0, 5.0, 6.0}};
 [[maybe_unused]] constexpr nou::layer auto layer_input3_output4 =
     layer<3, 4, double>{.output = {7.0, 8.0, 9.0, 10.0}};
+
+template <auto InputSize, auto OutputSize, class RealType>
+struct not_propagatable_layer {
+  using input_shape_type = nou::shape<InputSize>;
+  using output_shape_type = nou::shape<OutputSize>;
+  using real_type = RealType;
+};
+constexpr auto not_propagatable_layer_input1_output2 =
+    not_propagatable_layer<1, 2, double>{};
 }  // namespace
 
 auto main() -> int {
@@ -83,6 +92,14 @@ auto main() -> int {
     constexpr auto output = nou::predict(
         nou::make_network(layer_input1_output2, layer_input2_output3), input1);
     static_assert(output == layer_input2_output3.output);
+  };
+
+  "prediction fails if layer cannot propagate"_test = []() -> void {
+    static_assert(
+        compile_fail_predict<decltype(nou::make_network(
+                                 not_propagatable_layer_input1_output2,
+                                 layer_input2_output3)),
+                             decltype(input1)>);
   };
 
   return 0;

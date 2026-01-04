@@ -271,14 +271,10 @@ export inline constexpr auto propagate = propagate_impl{};
 
 template <std::size_t I, class Network, class Input>
   requires(I < std::tuple_size_v<std::remove_cvref_t<Network>>) &&
-          network<std::remove_cvref_t<Network>> && requires {
-            {
-              propagate(
-                  std::declval<
-                      std::tuple_element_t<I, std::remove_cvref_t<Network>>>(),
-                  std::declval<std::remove_cvref_t<Input>>())
-            };
-          }
+          network<std::remove_cvref_t<Network>> &&
+          std::invocable<decltype(propagate),
+                         std::tuple_element_t<I, std::remove_cvref_t<Network>>,
+                         Input>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto predict_impl(Network&& network, Input&& input) noexcept(noexcept(
     propagate(std::get<I>(network), std::forward<Input>(input)))) -> auto {
@@ -293,7 +289,10 @@ constexpr auto predict_impl(Network&& network, Input&& input) noexcept(noexcept(
 }
 
 export template <class Network, class Input>
-  requires network<std::remove_cvref_t<Network>>
+  requires network<std::remove_cvref_t<Network>> &&
+           std::invocable<decltype(propagate),
+                          std::tuple_element_t<0, std::remove_cvref_t<Network>>,
+                          Input>
 constexpr auto predict(Network&& network, Input&& input) -> auto {
   return predict_impl<0>(std::forward<Network>(network),
                          std::forward<Input>(input));
