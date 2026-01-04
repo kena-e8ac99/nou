@@ -24,7 +24,7 @@
 
 1. **Concept Constraints**: Heavy use of `requires` clauses to enforce compile-time contracts
 2. **Type Traits**: `is_network<T>` specialization for tuple detection
-3. **Customization Points**: `build_impl` operator allows multiple builder patterns
+3. **Customization Points**: `build()` customization point allows multiple builder patterns
 4. **Builder Factories**: Convert builders to layers dynamically based on previous layer's real_type and output_shape
 
 ## Development Workflows
@@ -41,7 +41,7 @@ cmake --build build --config Debug -j4 --verbose
 # Run tests (single executable per test)
 ctest --test-dir build --verbose
 
-# Lint (clang-tidy checks all checks except basic ones)
+# Lint (clang-tidy using checks configured in the repository .clang-tidy file)
 run-clang-tidy-18 -p build include
 ```
 
