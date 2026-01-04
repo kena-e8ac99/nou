@@ -2,6 +2,7 @@ module;
 
 #include <concepts>
 #include <cstddef>
+#include <ranges>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -233,6 +234,65 @@ constexpr auto make_network(First first, Second second, Rest... rest) -> network
     }()...};
   }(std::tuple{std::move(first), std::move(second), std::move(rest)...},
              std::make_index_sequence<sizeof...(Rest) + 2>{});
+}
+
+struct propagate_impl {
+  template <class Layer, class Input>
+    requires layer<std::remove_cvref_t<Layer>> && requires {
+      { std::declval<Layer>().propagate(std::declval<Input>()) };
+    }
+  constexpr auto operator()(Layer&& layer, Input&& input) const
+      noexcept(noexcept(
+          std::forward<Layer>(layer).propagate(std::forward<Input>(input))))
+          -> decltype(std::forward<Layer>(layer).propagate(
+              std::forward<Input>(input))) {
+    return std::forward<Layer>(layer).propagate(std::forward<Input>(input));
+  }
+
+  template <class Layer, class Input>
+    requires(
+        layer<std::remove_cvref_t<Layer>> &&
+        !requires { std::declval<Layer>().propagate(std::declval<Input>()); } &&
+        requires {
+          { propagate(std::declval<Layer>(), std::declval<Input>()) };
+        })
+  constexpr auto operator()(Layer&& layer, Input&& input) const
+      noexcept(noexcept(propagate(std::forward<Layer>(layer),
+                                  std::forward<Input>(input))))
+          -> decltype(propagate(std::forward<Layer>(layer),
+                                std::forward<Input>(input))) {
+    return propagate(std::forward<Layer>(layer), std::forward<Input>(input));
+  }
+};
+
+inline namespace cpo {
+export inline constexpr auto propagate = propagate_impl{};
+}  // namespace cpo
+
+template <std::size_t I, class Network, class Input>
+  requires(I < std::tuple_size_v<Network>) &&
+          network<std::remove_cvref_t<Network>> && requires {
+            {
+              propagate(std::declval<std::tuple_element_t<I, Network>>(),
+                        std::declval<std::remove_cvref_t<Input>>())
+            };
+          }
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+constexpr auto predict_impl(Network& network, Input&& input) noexcept(noexcept(
+    propagate(std::get<I>(network), std::forward<Input>(input)))) -> auto {
+  auto intermediate =
+      propagate(std::get<I>(network), std::forward<Input>(input));
+  if constexpr (I + 1 < std::tuple_size_v<Network>) {
+    return predict_impl<I + 1>(network, std::move(intermediate));
+  } else {
+    return intermediate;
+  }
+}
+
+export template <class Network, class Input>
+  requires network<std::remove_cvref_t<Network>>
+constexpr auto predict(Network& network, Input&& input) -> auto {
+  return predict_impl<0>(network, std::forward<Input>(input));
 }
 
 }  // namespace nou
