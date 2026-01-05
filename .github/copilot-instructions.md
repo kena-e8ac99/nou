@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**nou** is a modern C++20 compile-time neural network library using C++ modules. It provides compile-time type-safe neural network functionality through concept-based design and customization point objects (CPOs).
+**nou** is a modern C++23 compile-time neural network library using C++ modules. It provides compile-time type-safe neural network functionality through concept-based design and customization point objects (CPOs). Return types are zero-overhead: layers may return `T` or `std::expected<T, computation_error>`, and `predict()` returns `T` only if every layer is error-free.
 
 ## Architecture & Core Concepts
 
@@ -10,8 +10,8 @@
 
 - **Single Module Entry**: [include/nou/nou.cppm](../include/nou/nou.cppm) - exports all public APIs
 - **Key Concepts**: `shape<N>` (dimension descriptor), `layer` (layer interface), `network` (tuple-like container of layers)
-- **Central Function**: `make_network()` - composes layers or builders into type-safe networks
-- **CPO Pattern**: `build()` customization point supports member functions, free functions, and hidden friend functions
+- **Central Functions**: `make_network()` composes layers/builders; `predict()` propagates inputs and conditionally returns `T` or `std::expected<T, computation_error>`
+- **CPO Pattern**: `build()` customization point supports member functions, free functions, and hidden friend functions; `propagate` CPO supports member or ADL free/hidden friend
 
 ### Type System Fundamentals
 
@@ -19,6 +19,7 @@
 - **`layer` Concept**: Requires `real_type`, `input_shape_type`, `output_shape_type` member types
 - **`network` Concept**: A `std::tuple` containing only `layer` types
 - **`is_connectable`**: Validates adjacent layers/builders have matching input/output shapes
+- **Error Model**: `computation_error` (uint8_t) is the unified runtime error; `computation_errorable` concept detects `std::expected<T, computation_error>`
 
 ### Design Patterns
 
@@ -29,20 +30,20 @@
 
 ## Development Workflows
 
-### Build & Test
+### Build & Test (local)
 
 ```bash
-# Configure with Ninja and warnings-as-errors
-cmake -Bbuild -GNinja -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_BUILD_TYPE=Debug
+# Configure with Ninja and warnings-as-errors (C++23)
+cmake -Bbuild -GNinja -DCMAKE_CXX_COMPILER=clang++-19 -DCMAKE_BUILD_TYPE=Debug
 
-# Build (uses C++20 modules)
+# Build (uses C++23 modules)
 cmake --build build --config Debug -j4 --verbose
 
 # Run tests (single executable per test)
 ctest --test-dir build --verbose
 
 # Lint (clang-tidy using checks configured in the repository .clang-tidy file)
-run-clang-tidy-18 -p build include
+run-clang-tidy-19 -p build include
 ```
 
 ### Test Framework
@@ -54,11 +55,12 @@ run-clang-tidy-18 -p build include
 
 ## Code Conventions & Patterns
 
-### C++20 Module Patterns
+### C++23 Module Patterns
 
 - Use `export module nou;` for public exports
 - Internal helpers use unnamed namespace, not `export`
 - Template specializations stay internal unless exported
+- Exported APIs include `make_network`, `predict`, `build` CPO, `propagate` CPO, and `computation_error`
 
 ### Builder Implementation Options
 
@@ -93,19 +95,20 @@ struct MyBuilder {
 
 - **No External Libraries other than test framework**: All core functionality is implemented from scratch
 - **Boost.UT** (v2.3.1): Header-only test framework, fetched at configure time
-- **Standard Library**: C++20 standard library features only
+- **Standard Library**: C++23 standard library features; `std::expected` required
 
 ### CMake Configuration
 
-- **Language**: C++20 required, enforced by CMakeLists.txt
+- **Language**: C++23 required, enforced by CMakeLists.txt
 - **Compiler Warnings**: All warnings as errors (`-Werror` on GCC/Clang, `/WX` on MSVC)
-- **Clang-Tidy**: Enabled in CI for clang++-18; specific check categories enabled (bugprone, cert, cppcoreguidelines, clang-analyzer, google, misc, modernize, performance, readability) with warnings-as-errors
+- **Clang-Tidy**: Enabled in CI for clang++-19; specific check categories enabled (bugprone, cert, cppcoreguidelines, clang-analyzer, google, misc, modernize, performance, readability) with warnings-as-errors
 - **Modules**: Uses CMake FILE_SET CXX_MODULES target property
+- **Known clang-tidy false positive**: `misc-use-internal-linkage` on exported functions in the module; suppressed with `// NOLINTNEXTLINE(misc-use-internal-linkage)`
 
 ### CI/CD
 
-- **Linux CI** (.github/workflows/linux.yml): Tests g++-14 and clang++-18
-- **Linting**: Only clang++-18 runs clang-tidy to save CI time
+- **Linux CI** (.github/workflows/linux.yml): Tests g++-14 and clang++-19
+- **Linting**: clang++-19 job runs clang-tidy-19
 
 ## Critical Developer Knowledge
 
@@ -122,6 +125,7 @@ All computations are `constexpr` to ensure:
 - Zero runtime overhead
 - Type safety at compile time
 - Early error detection during compilation
+- Conditional error handling at zero cost when layers return plain `T` (no `std::expected` path taken)
 
 ### Adding New Tests
 

@@ -5,4 +5,4 @@ function(nou_test name)
 endfunction()
 
 nou_test(ut_make_network)
-
+nou_test(ut_prediction)
