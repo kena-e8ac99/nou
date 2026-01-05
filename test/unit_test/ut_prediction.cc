@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <boost/ut.hpp>
+#include <expected>
 #include <ranges>
 
 import nou;
@@ -39,6 +40,8 @@ constexpr nou::layer auto layer_input1_output2_propagate_member =
     layer_propagate_member<1, 2, double>{.output = {2.0, 3.0}};
 constexpr nou::layer auto layer_input2_output3_propagate_member =
     layer_propagate_member<2, 3, double>{.output = {4.0, 5.0, 6.0}};
+constexpr nou::layer auto layer_input3_output4_propagate_member =
+    layer_propagate_member<3, 4, double>{.output = {7.0, 8.0, 9.0, 10.0}};
 
 template <auto InputSize, auto OutputSize, class RealType>
 struct layer_propagate_free_func {
@@ -88,6 +91,39 @@ struct not_propagatable_layer {
 };
 constexpr auto not_propagatable_layer_input1_output2 =
     not_propagatable_layer<1, 2, double>{};
+
+template <auto InputSize, auto OutputSize>
+struct computation_error_layer {
+  using input_shape_type = nou::shape<InputSize>;
+  using output_shape_type = nou::shape<OutputSize>;
+  using real_type = double;
+  std::expected<std::array<real_type, OutputSize>, nou::computation_error>
+      output{};  // NOLINT(misc-non-private-member-variables-in-classes)
+
+  template <std::ranges::input_range Input>
+  [[nodiscard]] constexpr auto propagate([[maybe_unused]] Input&& input) const
+      -> std::expected<std::array<real_type, OutputSize>,
+                       nou::computation_error> {
+    return output;
+  }
+};
+constexpr nou::layer auto errorable_layer_input1_output2_with_error =
+    computation_error_layer<1, 2>{
+        .output = std::unexpected{nou::computation_error::invalid_input}};
+constexpr nou::layer auto errorable_layer_input2_output3_with_error =
+    computation_error_layer<2, 3>{
+        .output = std::unexpected{nou::computation_error::invalid_input}};
+constexpr nou::layer auto errorable_layer_input3_output4_with_error =
+    computation_error_layer<3, 4>{
+        .output = std::unexpected{nou::computation_error::invalid_input}};
+constexpr nou::layer auto errorable_layer_input1_output2_without_error =
+    computation_error_layer<1, 2>{.output = std::array<double, 2>{2.0, 3.0}};
+constexpr nou::layer auto errorable_layer_input2_output3_without_error =
+    computation_error_layer<2, 3>{.output =
+                                      std::array<double, 3>{4.0, 5.0, 6.0}};
+constexpr nou::layer auto errorable_layer_input3_output4_without_error =
+    computation_error_layer<3, 4>{
+        .output = std::array<double, 4>{7.0, 8.0, 9.0, 10.0}};
 }  // namespace
 
 auto main() -> int {
@@ -171,6 +207,183 @@ auto main() -> int {
                                  not_propagatable_layer_input1_output2,
                                  layer_input2_output3_propagate_member)),
                              decltype(input1)>);
+  };
+
+  "prediction returns error if the layer returns error"_test = []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_with_error,
+                          layer_input2_output3_propagate_member),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "prediction returns errorable output if the layer returns errorable output"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_without_error,
+                          errorable_layer_input2_output3_without_error),
+        input1);
+    static_assert(result.value() ==
+                  errorable_layer_input2_output3_without_error.output);
+  };
+
+  "predict [errorable layer(without error), non-errorable layer]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_without_error,
+                          layer_input2_output3_propagate_member),
+        input1);
+    static_assert(result.value() ==
+                  layer_input2_output3_propagate_member.output);
+  };
+
+  "predict [errorable layer(without error), errorable layer(without error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_without_error,
+                          errorable_layer_input2_output3_without_error),
+        input1);
+    static_assert(result.value() ==
+                  errorable_layer_input2_output3_without_error.output);
+  };
+
+  "predict [errorable layer(without error), errorable layer(with error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_without_error,
+                          errorable_layer_input2_output3_with_error),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [errorable layer(with error), non-errorable layer]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_with_error,
+                          layer_input2_output3_propagate_member),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [errorable layer(with error), errorable layer(without error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_with_error,
+                          errorable_layer_input2_output3_without_error),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [errorable layer(with error), errorable layer(with error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_with_error,
+                          errorable_layer_input2_output3_with_error),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [errorable layer(without error), non-errorable layer, errorable layer(without error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_without_error,
+                          layer_input2_output3_propagate_member,
+                          errorable_layer_input3_output4_without_error),
+        input1);
+    static_assert(result.value() ==
+                  errorable_layer_input3_output4_without_error.output);
+  };
+
+  "predict [errorable layer(without error), non-errorable layer, errorable layer(with error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_without_error,
+                          layer_input2_output3_propagate_member,
+                          errorable_layer_input3_output4_with_error),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [errorable layer(with error), non-errorable layer, errorable layer(without error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_with_error,
+                          layer_input2_output3_propagate_member,
+                          errorable_layer_input3_output4_without_error),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [errorable layer(with error), non-errorable layer, errorable layer(with error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_with_error,
+                          layer_input2_output3_propagate_member,
+                          errorable_layer_input3_output4_with_error),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [non-errorable, errorable(without error), non-errorable]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(layer_input1_output2_propagate_member,
+                          errorable_layer_input2_output3_without_error,
+                          layer_input3_output4_propagate_member),
+        input1);
+    static_assert(result.value() ==
+                  layer_input3_output4_propagate_member.output);
+  };
+
+  "predict [non-errorable, errorable(with error), non-errorable]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(layer_input1_output2_propagate_member,
+                          errorable_layer_input2_output3_with_error,
+                          layer_input3_output4_propagate_member),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [errorable(without error), errorable(without error), errorable(without error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_without_error,
+                          errorable_layer_input2_output3_without_error,
+                          errorable_layer_input3_output4_without_error),
+        input1);
+    static_assert(result.value() ==
+                  errorable_layer_input3_output4_without_error.output);
+  };
+
+  "predict [errorable(with error), errorable(without error), errorable(without error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_with_error,
+                          errorable_layer_input2_output3_without_error,
+                          errorable_layer_input3_output4_without_error),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [errorable(without error), errorable(with error), errorable(without error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_without_error,
+                          errorable_layer_input2_output3_with_error,
+                          errorable_layer_input3_output4_without_error),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  };
+
+  "predict [errorable(without error), errorable(without error), errorable(with error)]"_test =
+      []() -> void {
+    constexpr auto result = nou::predict(
+        nou::make_network(errorable_layer_input1_output2_without_error,
+                          errorable_layer_input2_output3_without_error,
+                          errorable_layer_input3_output4_with_error),
+        input1);
+    static_assert(result.error() == nou::computation_error::invalid_input);
   };
 
   return 0;

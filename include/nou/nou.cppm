@@ -2,6 +2,8 @@ module;
 
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -268,6 +270,73 @@ inline namespace cpo {
 export inline constexpr auto propagate = propagate_impl{};
 }  // namespace cpo
 
+/**
+ * Unified error type for neural network computation failures.
+ *
+ * This enumeration represents error conditions that can occur during neural
+ * network computations, including layer propagation, training, and evaluation.
+ * The enum is designed to grow incrementally as new computational operations
+ * are implemented and their error cases are discovered.
+ *
+ * The underlying type is `std::uint8_t` (1 byte) to minimize memory overhead
+ * in `std::expected` and cache utilization. This provides 256 possible error
+ * values, which is more than sufficient for neural network computation errors.
+ *
+ * **Design Philosophy:**
+ * - Layers that cannot produce errors return values directly (type `T`)
+ * - Layers that may produce errors return `std::expected<T, computation_error>`
+ * - Operations like `predict()`, `fit()`, `evaluate()` propagate this unified
+ *   error type across all layers
+ * - This conditional approach achieves zero overhead for error-free paths
+ * - Single error type enables consistent error handling across all operations
+ *
+ * **Adding new values:**
+ * - New values are added incrementally during operation/layer implementation
+ * - Add a value when its error condition is discovered in actual code
+ * - Keep values focused on actionable runtime errors
+ *
+ * @see predict for how error types are composed across network layers.
+ * @see propagate for the underlying computation that may produce errors.
+ */
+export enum class computation_error : std::uint8_t {
+  /**
+   * Input values are outside the expected domain.
+   *
+   * Common causes:
+   * - NaN (Not a Number) detected in input or intermediate computation
+   * - Inf (Infinity) detected in input or intermediate computation
+   * - Value range violation (if enforced by a layer)
+   */
+  invalid_input,
+
+  /**
+   * Numerical instability detected during computation.
+   *
+   * Common causes:
+   * - Overflow in floating-point arithmetic
+   * - Underflow causing loss of precision
+   * - Accumulation of rounding errors
+   */
+  numerical_instability
+};
+
+/**
+ * Specifies that a type is a computation result that may contain an error.
+ *
+ * This concept identifies a types that represents the result of a neural
+ * network computation which may fail with a `computation_error`. It is
+ * specifically designed to detect `std::expected<T, computation_error>`
+ * specializations.
+ *
+ * @tparam T The type to check
+ *
+ * @see computation_error for the unified error type.
+ * @see predict for how computation results are composed across layers.
+ */
+export template <class T>
+concept computation_errorable =
+    std::same_as<T, std::expected<typename T::value_type, computation_error>>;
+
 template <std::size_t I, class Network, class Input>
   requires(I < std::tuple_size_v<std::remove_cvref_t<Network>>) &&
           network<std::remove_cvref_t<Network>> &&
@@ -279,11 +348,26 @@ constexpr auto predict_impl(Network&& network, Input&& input) noexcept(noexcept(
     propagate(std::get<I>(network), std::forward<Input>(input)))) -> auto {
   auto intermediate =
       propagate(std::get<I>(network), std::forward<Input>(input));
-  if constexpr (I + 1 < std::tuple_size_v<std::remove_cvref_t<Network>>) {
+
+  if constexpr (I + 1 == std::tuple_size_v<std::remove_cvref_t<Network>>) {
+    return intermediate;
+  } else if constexpr (computation_errorable<decltype(intermediate)>) {
+    using next_layer_output_type = decltype(predict_impl<I + 1>(
+        std::forward<Network>(network),
+        std::declval<typename decltype(intermediate)::value_type>()));
+    using result_type = std::expected<
+        std::conditional_t<computation_errorable<next_layer_output_type>,
+                           typename next_layer_output_type::value_type,
+                           next_layer_output_type>,
+        computation_error>;
+    if (intermediate.has_value()) {
+      return result_type{predict_impl<I + 1>(std::forward<Network>(network),
+                                             std::move(intermediate).value())};
+    }
+    return result_type{std::unexpect, std::move(intermediate).error()};
+  } else {
     return predict_impl<I + 1>(std::forward<Network>(network),
                                std::move(intermediate));
-  } else {
-    return intermediate;
   }
 }
 
