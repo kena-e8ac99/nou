@@ -54,23 +54,32 @@ concept layer = requires {
                         shape<T::output_shape_type::value>>;
 };
 
-// Internal helper: Type trait to detect if a type is a network (tuple of
-// layers). Primary template matches non-network types.
+// Internal helper: Type trait to detect if a type is a sequential network
+// (tuple of layers). Primary template matches non-network types.
 template <class T>
-struct is_network : public std::false_type {};
+struct is_sequential_network : public std::false_type {};
 
 // Specialization matches tuples containing only layer types.
 template <layer... Ts>
-struct is_network<std::tuple<Ts...>> : public std::true_type {};
+struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
 
 /**
- * Specifies that a type can be used as a neural network.
+ * Specifies that a type is a sequential neural network.
  *
- * The network concept specifies that a type is a tuple-like container of
- * `layers`.
+ * A sequential network is a tuple-like container of `layer` types where each
+ * layer's output shape matches the next layer's input shape. Layers are
+ * processed in order during propagation.
+ *
+ * Sequential networks are composed using `make_network()` and evaluated using
+ * `predict()`. This concept distinguishes sequential networks from other
+ * possible network topologies (e.g., graph-based networks) that may be added
+ * in the future.
+ *
+ * @see make_network for how sequential networks are constructed.
+ * @see predict for how sequential networks are evaluated.
  */
 export template <class T>
-concept network = is_network<T>::value;
+concept sequential_network = is_sequential_network<T>::value;
 
 struct build_impl {
   template <class RealType, class Shape, class T>
@@ -198,7 +207,7 @@ struct is_connectable<First, Second, Rest...>
  * @param rest The layers or layer builders for the remaining layers in the
  * network.
  *
- * @return A network object satisfying the `network` concept.
+ * @return A network object satisfying the `sequential_network` concept.
  *
  * @pre For each adjacent pair of arguments `(Prev, Next)`:
  * - `Prev` must satisfy the `layer` concept
@@ -230,7 +239,7 @@ constexpr auto make_network(First first, Second second, Rest... rest) -> network
     }
   };
   return [&]<std::size_t... Is>(auto tuple, std::index_sequence<Is...>)
-             -> network auto {
+             -> sequential_network auto {
     return std::tuple{[&]() -> layer auto {
       return builder.template operator()<Is>(tuple);
     }()...};
@@ -392,7 +401,7 @@ concept computation_errorable =
 // Internal helper: Recursive implementation of predict.
 template <std::size_t I, class Network, class Input>
   requires(I < std::tuple_size_v<std::remove_cvref_t<Network>>) &&
-          network<std::remove_cvref_t<Network>> &&
+          sequential_network<std::remove_cvref_t<Network>> &&
           std::invocable<decltype(propagate),
                          std::tuple_element_t<I, std::remove_cvref_t<Network>>,
                          Input>
@@ -439,7 +448,7 @@ constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
  *   subsequent layers is skipped
  * - The first encountered error is propagated to the caller
  *
- * @tparam Network The network type (must satisfy `network` concept)
+ * @tparam Network The network type (must satisfy `sequential_network` concept)
  * @tparam Input The input type (must be compatible with first layer's input)
  *
  * @param network The neural network to use for prediction
@@ -456,7 +465,7 @@ constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
  * @see propagate for the underlying layer computation
  */
 export template <class Network, class Input>
-  requires network<std::remove_cvref_t<Network>> &&
+  requires sequential_network<std::remove_cvref_t<Network>> &&
            std::invocable<decltype(propagate),
                           std::tuple_element_t<0, std::remove_cvref_t<Network>>,
                           Input>
