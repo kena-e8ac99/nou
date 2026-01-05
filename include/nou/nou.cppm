@@ -397,8 +397,7 @@ template <std::size_t I, class Network, class Input>
                          std::tuple_element_t<I, std::remove_cvref_t<Network>>,
                          Input>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
-constexpr auto predict_impl(Network&& network, Input&& input) noexcept(noexcept(
-    propagate(std::get<I>(network), std::forward<Input>(input)))) -> auto {
+constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
   auto intermediate =
       propagate(std::get<I>(network), std::forward<Input>(input));
 
