@@ -267,6 +267,57 @@ struct propagate_impl {
 };
 
 inline namespace cpo {
+/**
+ * Customization point object for invoking layer forward propagation.
+ *
+ * The `propagate` customization point object provides a uniform interface for
+ * invoking layer forward propagation in neural network computations. It
+ * supports multiple customization patterns, allowing users to define layer
+ * propagation with either member functions or free/hidden friend functions.
+ *
+ * **Invocation Patterns:**
+ * 1. **Member function**: If the layer type `Layer` provides a member function
+ *    `propagate(input)`, it will be invoked as `layer.propagate(input)`.
+ * 2. **Free or hidden friend function**: If the layer type `Layer` does not
+ *    provide a member function but has a free function or hidden friend
+ *    function `propagate(layer, input)`, it will be invoked via ADL
+ *    (Argument Dependent Lookup).
+ *
+ * The customization point object is instantiated as the inline variable
+ * `propagate` in the inline `cpo` namespace, enabling convenient usage
+ * in network computations.
+ *
+ * **Return Types:**
+ * - If the layer is error-free (cannot produce errors during computation),
+ *   `propagate` returns `T` directly, where `T` is the output type of the
+ *   layer.
+ * - If the layer may produce errors during computation, `propagate` returns
+ *   `std::expected<T, computation_error>`, enabling error propagation through
+ *   the network.
+ *
+ * **Error Handling:**
+ * When a layer returns `std::expected<T, computation_error>`, the `predict()`
+ * function automatically handles error propagation:
+ * - Errors are short-circuited: if a layer returns an error, subsequent layers
+ *   are not executed
+ * - The first encountered error is propagated to the caller
+ * - If all layers are error-free, the final result is `T` (zero overhead)
+ *
+ * @tparam Layer The layer type (must satisfy `layer` concept)
+ * @tparam Input The input type (must be compatible with the layer's
+ *               `input_shape_type`)
+ *
+ * @return Either `T` (error-free computation) or
+ *         `std::expected<T, computation_error>` (fallible computation),
+ *         where `T` is the output type produced by the layer's propagation
+ *
+ * @note This function is fully `constexpr` and can be evaluated at
+ *       compile-time if the layer's propagation operation is `constexpr`.
+ *
+ * @see predict for how propagation results are composed across network layers.
+ * @see computation_error for possible error conditions.
+ * @see computation_errorable for identifying layers that may produce errors.
+ */
 export inline constexpr auto propagate = propagate_impl{};
 }  // namespace cpo
 
@@ -337,6 +388,7 @@ export template <class T>
 concept computation_errorable =
     std::same_as<T, std::expected<typename T::value_type, computation_error>>;
 
+// Internal helper: Recursive implementation of predict.
 template <std::size_t I, class Network, class Input>
   requires(I < std::tuple_size_v<std::remove_cvref_t<Network>>) &&
           network<std::remove_cvref_t<Network>> &&
@@ -371,6 +423,38 @@ constexpr auto predict_impl(Network&& network, Input&& input) noexcept(noexcept(
   }
 }
 
+/**
+ * Predicts output by propagating input through a neural network.
+ *
+ * This function propagates input data through all layers of the network,
+ * applying each layer's transformation in sequence. The function automatically
+ * handles error propagation across layers:
+ * - If all layers return values directly and the output layer returns type `T`,
+ *   the result is of type `T`.
+ * - If any layer returns `std::expected<T, computation_error>`, the result is
+ *   `std::expected<T, computation_error>`
+ *
+ * **Error Handling:**
+ * - Errors are short-circuited: if a layer returns an error, propagation to
+ *   subsequent layers is skipped
+ * - The first encountered error is propagated to the caller
+ *
+ * @tparam Network The network type (must satisfy `network` concept)
+ * @tparam Input The input type (must be compatible with first layer's input)
+ *
+ * @param network The neural network to use for prediction
+ * @param input The input data to propagate through the network
+ *
+ * @return Either `T` (if all layers are error-free) or
+ *         `std::expected<T, computation_error>` (if any layer may fail),
+ *         where `T` is the output type of the final layer
+ *
+ * @note This function is fully `constexpr` and can be evaluated at
+ *       compile-time if all layer operations are `constexpr`.
+ *
+ * @see computation_error for possible error conditions
+ * @see propagate for the underlying layer computation
+ */
 export template <class Network, class Input>
   requires network<std::remove_cvref_t<Network>> &&
            std::invocable<decltype(propagate),
