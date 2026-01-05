@@ -105,7 +105,7 @@ auto main() -> int {
   using namespace boost::ut;  // NOLINT(google-build-using-namespace)
 
   "construct model from two layers"_test = []() -> void {
-    constexpr nou::network auto network =
+    constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2, layer_input2_output3);
 
     static_assert(network ==
@@ -117,7 +117,7 @@ auto main() -> int {
   };
 
   "construct model from three or more layers"_test = []() -> void {
-    constexpr nou::network auto network = nou::make_network(
+    constexpr nou::sequential_network auto network = nou::make_network(
         layer_input1_output2, layer_input2_output3, layer_input3_output4);
 
     static_assert(network == std::tuple{layer_input1_output2,
