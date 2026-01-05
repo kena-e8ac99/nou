@@ -375,7 +375,7 @@ export enum class computation_error : std::uint8_t {
 /**
  * Specifies that a type is a computation result that may contain an error.
  *
- * This concept identifies a types that represents the result of a neural
+ * This concept identifies a type that represents the result of a neural
  * network computation which may fail with a `computation_error`. It is
  * specifically designed to detect `std::expected<T, computation_error>`
  * specializations.
