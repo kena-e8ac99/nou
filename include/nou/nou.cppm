@@ -214,6 +214,7 @@ struct is_connectable<First, Second, Rest...>
  */
 export template <layer First, class Second, class... Rest>
   requires(is_connectable<First, Second, Rest...>::value)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto make_network(First first, Second second, Rest... rest) -> network
     auto {
   constexpr auto builder = []<std::size_t I, class T>(T& tuple) -> layer auto {
@@ -460,6 +461,7 @@ export template <class Network, class Input>
            std::invocable<decltype(propagate),
                           std::tuple_element_t<0, std::remove_cvref_t<Network>>,
                           Input>
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto predict(Network&& network, Input&& input) noexcept(
     noexcept(predict_impl<0>(std::forward<Network>(network),
                              std::forward<Input>(input)))) -> auto {
