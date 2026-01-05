@@ -376,7 +376,9 @@ export template <class Network, class Input>
            std::invocable<decltype(propagate),
                           std::tuple_element_t<0, std::remove_cvref_t<Network>>,
                           Input>
-constexpr auto predict(Network&& network, Input&& input) -> auto {
+constexpr auto predict(Network&& network, Input&& input) noexcept(
+    noexcept(predict_impl<0>(std::forward<Network>(network),
+                             std::forward<Input>(input)))) -> auto {
   return predict_impl<0>(std::forward<Network>(network),
                          std::forward<Input>(input));
 }
