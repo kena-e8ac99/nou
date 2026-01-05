@@ -131,7 +131,7 @@ auto main() -> int {
 
   "prediction propagates its input to the first layer"_test = []() -> void {
     constexpr auto passed_input_to_first_layer = []() -> auto {
-      nou::network auto network =
+      nou::sequential_network auto network =
           nou::make_network(layer_input1_output2_propagate_member,
                             layer_input2_output3_propagate_member);
       nou::predict(network, input1);
@@ -143,7 +143,7 @@ auto main() -> int {
   "prediction propagates layer outputs to subsequent layers"_test =
       []() -> void {
     constexpr auto passed_input_to_second_layer = []() -> auto {
-      nou::network auto network =
+      nou::sequential_network auto network =
           nou::make_network(layer_input1_output2_propagate_member,
                             layer_input2_output3_propagate_member);
       nou::predict(network, input1);
@@ -154,7 +154,7 @@ auto main() -> int {
   };
 
   "prediction returns the output of the last layer"_test = []() -> void {
-    constexpr nou::network auto network =
+    constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2_propagate_member,
                           layer_input2_output3_propagate_member);
     static_assert(nou::predict(network, input1) ==
@@ -162,7 +162,7 @@ auto main() -> int {
   };
 
   "predict network via propagate member function"_test = []() -> void {
-    constexpr nou::network auto network =
+    constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2_propagate_member,
                           layer_input2_output3_propagate_member);
     static_assert(nou::predict(network, input1) ==
@@ -170,7 +170,7 @@ auto main() -> int {
   };
 
   "predict network via propagate free function"_test = []() -> void {
-    constexpr nou::network auto network =
+    constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2_propagate_free_func,
                           layer_input2_output3_propagate_free_func);
     static_assert(nou::predict(network, input1) ==
@@ -178,7 +178,7 @@ auto main() -> int {
   };
 
   "predict network via propagate hidden friend function"_test = []() -> void {
-    constexpr nou::network auto network =
+    constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2_propagate_hidden_friend,
                           layer_input2_output3_propagate_hidden_friend);
     static_assert(nou::predict(network, input1) ==
@@ -186,7 +186,7 @@ auto main() -> int {
   };
 
   "predict const lvalue network"_test = []() -> void {
-    constexpr nou::network auto network =
+    constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2_propagate_member,
                           layer_input2_output3_propagate_member);
     static_assert(nou::predict(network, input1) ==
