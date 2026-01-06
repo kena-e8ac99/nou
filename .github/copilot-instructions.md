@@ -8,10 +8,29 @@
 
 ### Module-Based Design
 
-- **Single Module Entry**: [include/nou/nou.cppm](../include/nou/nou.cppm) - exports all public APIs
-- **Key Concepts**: `shape<N>` (dimension descriptor), `layer` (layer interface), `network` (tuple-like container of layers)
-- **Central Functions**: `make_network()` composes layers/builders; `predict()` propagates inputs and conditionally returns `T` or `std::expected<T, computation_error>`
-- **CPO Pattern**: `build()` customization point supports member functions, free functions, and hidden friend functions; `propagate` CPO supports member or ADL free/hidden friend
+The library uses a modular architecture with clear separation of concerns:
+
+- **`nou.core`** ([include/nou/core.cppm](../include/nou/core.cppm)) - Core concepts and network construction
+  - Exports: `shape<N>`, `layer` concept, `sequential_network` concept, `network` concept, `is_connectable` trait
+  - Exports: `build` CPO, `make_network()` function
+  - No dependencies on other nou modules
+  
+- **`nou.predict`** ([include/nou/predict.cppm](../include/nou/predict.cppm)) - Inference pipeline and error handling
+  - Re-exports: `nou.core` (provides transitive access to core types)
+  - Exports: `propagate` CPO, `computation_error` enum, `computation_errorable` concept
+  - Exports: `predict()` function for neural network inference
+  
+- **`nou`** ([include/nou/nou.cppm](../include/nou/nou.cppm)) - Umbrella module for convenience
+  - Re-exports: `nou.predict` (transitively includes `nou.core`)
+  - Single-import entry point: `import nou;` provides access to all functionality
+
+**Module Dependency Chain**: `nou.core` → `nou.predict` → `nou` (umbrella)
+
+**Key Concepts**: `shape<N>` (dimension descriptor), `layer` (layer interface), `network` (tuple-like container of layers)
+
+**Central Functions**: `make_network()` composes layers/builders; `predict()` propagates inputs and conditionally returns `T` or `std::expected<T, computation_error>`
+
+**CPO Pattern**: `build()` customization point supports member functions, free functions, and hidden friend functions; `propagate` CPO supports member or ADL free/hidden friend
 
 ### Type System Fundamentals
 
@@ -57,10 +76,17 @@ run-clang-tidy-19 -p build include
 
 ### C++23 Module Patterns
 
-- Use `export module nou;` for public exports
-- Internal helpers use unnamed namespace, not `export`
-- Template specializations stay internal unless exported
-- Exported APIs include `make_network`, `predict`, `build` CPO, `propagate` CPO, and `computation_error`
+- **Module Declarations**:
+  - `export module nou.core;` - Core types and network construction
+  - `export module nou.predict;` - Inference and error handling (imports `nou.core`)
+  - `export module nou;` - Umbrella module (imports `nou.predict`)
+- **Module Re-exports**: Use `export import` to transitively expose submodule APIs
+- **Internal Helpers**: Use unnamed namespace, not `export`
+- **Template Specializations**: Stay internal unless explicitly exported
+- **Exported APIs by Module**:
+  - `nou.core`: `shape`, `layer`, `sequential_network`, `network`, `is_connectable`, `build` CPO, `make_network()`
+  - `nou.predict`: `propagate` CPO, `computation_error`, `computation_errorable`, `predict()` (plus re-exported `nou.core` APIs)
+  - `nou`: All APIs via re-export of `nou.predict`
 
 ### Builder Implementation Options
 
@@ -103,7 +129,7 @@ struct MyBuilder {
 - **Language**: C++23 required, enforced by CMakeLists.txt
 - **Compiler Warnings**: All warnings as errors (`-Werror` on GCC/Clang, `/WX` on MSVC)
 - **Clang-Tidy**: Enabled in CI for clang++-19; specific check categories enabled (bugprone, cert, cppcoreguidelines, clang-analyzer, google, misc, modernize, performance, readability) with warnings-as-errors
-- **Modules**: Uses CMake FILE_SET CXX_MODULES target property
+- **Modules**: Uses CMake `FILE_SET CXX_MODULES` with modules listed in dependency order: `core.cppm`, `predict.cppm`, `nou.cppm`
 - **Known clang-tidy false positive**: `misc-use-internal-linkage` on exported functions in the module; suppressed with `// NOLINTNEXTLINE(misc-use-internal-linkage)`
 
 ### CI/CD
@@ -131,7 +157,10 @@ All computations are `constexpr` to ensure:
 ### Adding New Tests
 
 1. Create [test/unit_test/new_test.cc](../test/unit_test/)
-2. Use `import nou;` and standard includes
+2. Import the appropriate module(s):
+   - `import nou;` - For tests using the full API (most common)
+   - `import nou.core;` - For tests focusing only on network construction
+   - `import nou.predict;` - For tests requiring both core and prediction APIs
 3. Add `nou_test(new_test)` to [test/unit_test/CMakeLists.txt](../test/unit_test/CMakeLists.txt)
 4. Use `static_assert` for compile-time checks and `compile_fail_*` concepts for rejection validation
 5. Use standard C++ blocks with comment headers for test names (e.g., `// --- test name --- \n { ... }`)
