@@ -9,10 +9,11 @@ misc-*,\
 modernize-*,\
 performance-*,\
 readability-*,\
+-readability-redundant-declaration,\
+-misc-include-cleaner\
 "
 WarningsAsErrors: '*'
 FormatStyle:     file
 CheckOptions:    {}
 SystemHeaders:   false
 ...
-
