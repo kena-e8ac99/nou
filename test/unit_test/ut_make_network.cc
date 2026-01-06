@@ -1,4 +1,3 @@
-#include <boost/ut.hpp>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -102,9 +101,8 @@ struct incorrect_layer_builder {
 }  // namespace
 
 auto main() -> int {
-  using namespace boost::ut;  // NOLINT(google-build-using-namespace)
-
-  "construct model from two layers"_test = []() -> void {
+  // --- construct model from two layers ---
+  {
     constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2, layer_input2_output3);
 
@@ -114,9 +112,10 @@ auto main() -> int {
         not is_same_reference(std::get<0>(network), layer_input1_output2));
     static_assert(
         not is_same_reference(std::get<1>(network), layer_input2_output3));
-  };
+  }
 
-  "construct model from three or more layers"_test = []() -> void {
+  // --- construct model from three or more layers ---
+  {
     constexpr nou::sequential_network auto network = nou::make_network(
         layer_input1_output2, layer_input2_output3, layer_input3_output4);
 
@@ -129,59 +128,60 @@ auto main() -> int {
         not is_same_reference(std::get<1>(network), layer_input2_output3));
     static_assert(
         not is_same_reference(std::get<2>(network), layer_input3_output4));
-  };
+  }
 
-  "model construction fails if first argument is not layer"_test =
-      []() -> void {
+  // --- model construction fails if first argument is not layer ---
+  {
     static_assert(compile_fail_make_network<not_layer, layer_input1_output2_t>);
-  };
+  }
 
-  "model construction fails if layer's input shape does not match"_test =
-      []() -> void {
+  // --- model construction fails if layer's input shape does not match ---
+  {
     static_assert(compile_fail_make_network<layer_input1_output2_t,
                                             layer_input3_output4_t>);
-  };
+  }
 
-  "construct model from [layer, layer builder(member function)]"_test =
-      []() -> void {
+  // --- construct model from [layer, layer builder(member function)] ---
+  {
     static_assert(
         nou::make_network(layer_input1_output2, layer_builder_member_output3) ==
         std::tuple{layer_input1_output2, layer_input2_output3});
-  };
+  }
 
-  "construct model from [layer, layer builder(free function)]"_test =
-      []() -> void {
+  // --- construct model from [layer, layer builder(free function)] ---
+  {
     static_assert(nou::make_network(layer_input1_output2,
                                     layer_builder_free_func_output3) ==
                   std::tuple{layer_input1_output2, layer_input2_output3});
-  };
+  }
 
-  "construct model from [layer, layer builder(hidden friend function)]"_test =
-      []() -> void {
+  // --- construct model from [layer, layer builder(hidden friend function)] ---
+  {
     static_assert(nou::make_network(layer_input1_output2,
                                     layer_builder_hidden_friend_output3) ==
                   std::tuple{layer_input1_output2, layer_input2_output3});
-  };
+  }
 
-  "construct model from [layer, layer builder, layer]"_test = []() -> void {
+  // --- construct model from [layer, layer builder, layer] ---
+  {
     static_assert(nou::make_network(layer_input1_output2,
                                     layer_builder_member_output3,
                                     layer_input3_output4) ==
                   std::tuple{layer_input1_output2, layer_input2_output3,
                              layer_input3_output4});
-  };
+  }
 
-  "model construction fails if second is not layer or layer builder"_test =
-      []() -> void {
+  // --- model construction fails if second is not layer or layer builder ---
+  {
     static_assert(
         compile_fail_make_network<layer_input1_output2_t, not_layer_builder>);
-  };
+  }
 
-  "model construction fails if layer builder returns not a layer"_test =
-      []() -> void {
+  // --- model construction fails if layer builder returns not a layer ---
+  {
     static_assert(compile_fail_make_network<layer_input1_output2_t,
                                             incorrect_layer_builder>);
-  };
+  }
 
   return 0;
 }

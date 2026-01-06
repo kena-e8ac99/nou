@@ -48,7 +48,7 @@ run-clang-tidy-19 -p build include
 
 ### Test Framework
 
-- **Framework**: [Boost.UT](https://github.com/boost-ext/ut) (fetched via CMake)
+- **Framework**: Tests use `static_assert` for compile-time verification within standard C++ blocks
 - **Test Structure**: [test/unit_test/](../test/unit_test/) contains `.cc` files
 - **Test Registration**: `nou_test(name)` CMake function auto-registers executables
 - **Concept Testing**: Tests heavily use compile-time assertions (`static_assert`)
@@ -88,13 +88,14 @@ struct MyBuilder {
 - Use `compile_fail_*` concepts to verify rejection of invalid types
 - Use `static_assert` for compile-time verification (no runtime assertions)
 - Layer test structs always include `.value` field for equality testing
+- Tests use standard C++ blocks with comments for test names (e.g., `// --- test name --- \n { ... }`)
+- For long test names (>80 characters), use multi-line comments with continuation on the next line, indented to align with the start of the test name
 
 ## Integration Points & Dependencies
 
 ### External Dependencies
 
-- **No External Libraries other than test framework**: All core functionality is implemented from scratch
-- **Boost.UT** (v2.3.1): Header-only test framework, fetched at configure time
+- **No External Libraries**: All core functionality is implemented from scratch using only the C++23 standard library
 - **Standard Library**: C++23 standard library features; `std::expected` required
 
 ### CMake Configuration
@@ -130,9 +131,11 @@ All computations are `constexpr` to ensure:
 ### Adding New Tests
 
 1. Create [test/unit_test/new_test.cc](../test/unit_test/)
-2. Use `#include <boost/ut.hpp>` and `import nou;`
+2. Use `import nou;` and standard includes
 3. Add `nou_test(new_test)` to [test/unit_test/CMakeLists.txt](../test/unit_test/CMakeLists.txt)
 4. Use `static_assert` for compile-time checks and `compile_fail_*` concepts for rejection validation
+5. Use standard C++ blocks with comment headers for test names (e.g., `// --- test name --- \n { ... }`)
+6. For long test names (>80 characters), break into multi-line comments with continuation indented to align with the test name start
 
 ## Format & Style
 
