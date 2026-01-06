@@ -89,6 +89,7 @@ struct MyBuilder {
 - Use `static_assert` for compile-time verification (no runtime assertions)
 - Layer test structs always include `.value` field for equality testing
 - Tests use standard C++ blocks with comments for test names (e.g., `// --- test name --- \n { ... }`)
+- For long test names (>80 characters), use multi-line comments with continuation on the next line, indented to align with the start of the test name
 
 ## Integration Points & Dependencies
 
@@ -134,6 +135,7 @@ All computations are `constexpr` to ensure:
 3. Add `nou_test(new_test)` to [test/unit_test/CMakeLists.txt](../test/unit_test/CMakeLists.txt)
 4. Use `static_assert` for compile-time checks and `compile_fail_*` concepts for rejection validation
 5. Use standard C++ blocks with comment headers for test names (e.g., `// --- test name --- \n { ... }`)
+6. For long test names (>80 characters), break into multi-line comments with continuation indented to align with the test name start
 
 ## Format & Style
 
