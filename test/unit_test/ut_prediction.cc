@@ -157,6 +157,70 @@ constexpr nou::layer auto layer_input1_output2_propagate_vector =
 constexpr nou::layer auto layer_input2_output3_propagate_vector =
     layer_propagate_vector<2, 3, double>{{4.0, 5.0, 6.0}};
 
+template <auto InputSize, auto OutputSize, class RealType>
+struct layer_batch_propagate {
+  using real_type = RealType;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
+  std::array<real_type, OutputSize>
+      output{};  // NOLINT(misc-non-private-member-variables-in-classes)
+
+  template <std::ranges::input_range Input>
+  [[nodiscard]] constexpr auto propagate([[maybe_unused]] Input&& input) const
+      -> std::vector<std::array<real_type, OutputSize>> {
+    return {output, output};
+  }
+};
+constexpr std::array<std::array<double, 1>, 2> batch_input1_2{input1, input1};
+constexpr nou::layer auto layer_input1_output2_batch_propagate =
+    layer_batch_propagate<1, 2, double>{{2.0, 3.0}};
+constexpr nou::layer auto layer_input2_output3_batch_propagate =
+    layer_batch_propagate<2, 3, double>{{4.0, 5.0, 6.0}};
+
+template <auto InputSize, auto OutputSize, class RealType>
+struct layer_batch_propagate_error {
+  using real_type = RealType;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
+
+  template <std::ranges::input_range Input>
+  [[nodiscard]] constexpr auto propagate([[maybe_unused]] Input&& input) const
+      -> std::expected<std::vector<std::array<real_type, OutputSize>>,
+                       nou::computation_error> {
+    return std::unexpected{nou::computation_error::invalid_input};
+  }
+};
+constexpr nou::layer auto layer_input1_output2_batch_propagate_error =
+    layer_batch_propagate_error<1, 2, double>{};
+constexpr nou::layer auto layer_input2_output3_batch_propagate_error =
+    layer_batch_propagate_error<2, 3, double>{};
+
+template <auto InputSize, auto OutputSize, class RealType>
+struct layer_batch_propagate_errorable {
+  using real_type = RealType;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
+  std::array<real_type, OutputSize>
+      output{};  // NOLINT(misc-non-private-member-variables-in-classes)
+
+  template <std::ranges::input_range Input>
+  [[nodiscard]] constexpr auto propagate([[maybe_unused]] Input&& input) const
+      -> std::expected<std::vector<std::array<real_type, OutputSize>>,
+                       nou::computation_error> {
+    return std::expected<std::vector<std::array<real_type, OutputSize>>,
+                         nou::computation_error>{{output, output}};
+  }
+};
+constexpr nou::layer auto layer_input1_output2_batch_propagate_errorable =
+    layer_batch_propagate_errorable<1, 2, double>{{2.0, 3.0}};
+constexpr nou::layer auto layer_input2_output3_batch_propagate_errorable =
+    layer_batch_propagate_errorable<2, 3, double>{{4.0, 5.0, 6.0}};
 }  // namespace
 
 auto main() -> int {
@@ -510,6 +574,37 @@ auto main() -> int {
                                  layer_input1_output2_propagate_member,
                                  layer_input2_output3_propagate_member)),
                              std::array<int, 1>>);
+  }
+
+  // --- batch prediction ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_batch_propagate,
+                          layer_input2_output3_batch_propagate);
+    static_assert(std::ranges::equal(
+        nou::predict(network, batch_input1_2),
+        std::vector{layer_input2_output3_batch_propagate.output,
+                    layer_input2_output3_batch_propagate.output}));
+  }
+
+  // --- batch prediction with errorable output with error ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_batch_propagate_error,
+                          layer_input2_output3_batch_propagate_error);
+    constexpr auto result = nou::predict(network, batch_input1_2);
+    static_assert(result.error() == nou::computation_error::invalid_input);
+  }
+
+  // --- batch prediction with errorable output without error ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_batch_propagate_errorable,
+                          layer_input2_output3_batch_propagate_errorable);
+    static_assert(std::ranges::equal(
+        nou::predict(network, batch_input1_2).value(),
+        std::vector{layer_input2_output3_batch_propagate_errorable.output,
+                    layer_input2_output3_batch_propagate_errorable.output}));
   }
 
   return 0;

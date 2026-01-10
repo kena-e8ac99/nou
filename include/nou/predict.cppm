@@ -145,10 +145,27 @@ concept output =
                      decltype(auto(
                          std::remove_cvref_t<Layer>::output_extents))>::value;
 
+template <class BatchInput, class Layer>
+concept batch_input =
+    !input<BatchInput, Layer> && std::ranges::input_range<BatchInput> &&
+    input<std::ranges::range_value_t<std::remove_cvref_t<BatchInput>>, Layer>;
+
+template <class BatchOutput, class Layer>
+concept batch_output =
+    (computation_errorable<BatchOutput> &&
+     std::ranges::input_range<typename BatchOutput::value_type> &&
+     output<std::ranges::range_value_t<typename BatchOutput::value_type>,
+            Layer>) ||
+    (!computation_errorable<BatchOutput> &&
+     std::ranges::input_range<BatchOutput> &&
+     output<std::ranges::range_value_t<BatchOutput>, Layer>);
+
 struct propagate_impl {
   template <class Layer, input<Layer> Input>
     requires layer<std::remove_cvref_t<Layer>> && requires {
-      { std::declval<Layer>().propagate(std::declval<Input>()) };
+      {
+        std::declval<Layer>().propagate(std::declval<Input>())
+      } -> output<Layer>;
     }
   constexpr auto operator()(Layer&& layer, Input&& input) const
       noexcept(noexcept(std::forward<Layer>(layer).propagate(
@@ -161,12 +178,42 @@ struct propagate_impl {
         layer<std::remove_cvref_t<Layer>> &&
         !requires { std::declval<Layer>().propagate(std::declval<Input>()); } &&
         requires {
-          { propagate(std::declval<Layer>(), std::declval<Input>()) };
+          {
+            propagate(std::declval<Layer>(), std::declval<Input>())
+          } -> output<Layer>;
         })
   constexpr auto operator()(Layer&& layer, Input&& input) const
       noexcept(noexcept(propagate(std::forward<Layer>(layer),
                                   std::forward<Input>(input))))
           -> output<Layer> auto {
+    return propagate(std::forward<Layer>(layer), std::forward<Input>(input));
+  }
+
+  template <class Layer, batch_input<Layer> Input>
+    requires layer<std::remove_cvref_t<Layer>> && requires {
+      {
+        std::declval<Layer>().propagate(std::declval<Input>())
+      } -> batch_output<Layer>;
+    }
+  constexpr auto operator()(Layer&& layer, Input&& input) const
+      noexcept(noexcept(std::forward<Layer>(layer).propagate(
+          std::forward<Input>(input)))) -> batch_output<Layer> auto {
+    return std::forward<Layer>(layer).propagate(std::forward<Input>(input));
+  }
+
+  template <class Layer, batch_input<Layer> Input>
+    requires(
+        layer<std::remove_cvref_t<Layer>> &&
+        !requires { std::declval<Layer>().propagate(std::declval<Input>()); } &&
+        requires {
+          {
+            propagate(std::declval<Layer>(), std::declval<Input>())
+          } -> batch_output<Layer>;
+        })
+  constexpr auto operator()(Layer&& layer, Input&& input) const
+      noexcept(noexcept(propagate(std::forward<Layer>(layer),
+                                  std::forward<Input>(input))))
+          -> batch_output<Layer> auto {
     return propagate(std::forward<Layer>(layer), std::forward<Input>(input));
   }
 };
@@ -234,8 +281,7 @@ template <std::size_t I, class Network, class Input>
                          std::tuple_element_t<I, std::remove_cvref_t<Network>>,
                          Input>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
-constexpr auto predict_impl(Network&& network, Input&& input)
-    -> output<output_layer<Network>> auto {
+constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
   auto intermediate =
       propagate(std::get<I>(network), std::forward<Input>(input));
 
@@ -293,7 +339,19 @@ constexpr auto predict_impl(Network&& network, Input&& input)
  * @see computation_error for possible error conditions
  * @see propagate for the underlying layer computation
  */
-export template <class Network, class Input>
+export template <class Network, input<first_layer<Network>> Input>
+  requires sequential_network<std::remove_cvref_t<Network>> &&
+           std::invocable<decltype(propagate), first_layer<Network>, Input>
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+constexpr auto predict(Network&& network, Input&& input) noexcept(
+    noexcept(predict_impl<0>(std::forward<Network>(network),
+                             std::forward<Input>(input))))
+    -> output<output_layer<Network>> auto {
+  return predict_impl<0>(std::forward<Network>(network),
+                         std::forward<Input>(input));
+}
+
+export template <class Network, batch_input<first_layer<Network>> Input>
   requires sequential_network<std::remove_cvref_t<Network>> &&
            std::invocable<decltype(propagate),
                           std::tuple_element_t<0, std::remove_cvref_t<Network>>,
@@ -302,7 +360,7 @@ export template <class Network, class Input>
 constexpr auto predict(Network&& network, Input&& input) noexcept(
     noexcept(predict_impl<0>(std::forward<Network>(network),
                              std::forward<Input>(input))))
-    -> output<output_layer<Network>> auto {
+    -> batch_output<output_layer<Network>> auto {
   return predict_impl<0>(std::forward<Network>(network),
                          std::forward<Input>(input));
 }
