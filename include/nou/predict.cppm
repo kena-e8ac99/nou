@@ -131,13 +131,13 @@ struct is_extents_match<T, RealType,
           std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
           std::extents<IndexType, Extents...>> {};
 
-template <class Input, class Layer>
+export template <class Input, class Layer>
 concept input =
     is_extents_match<Input, typename std::remove_cvref_t<Layer>::real_type,
                      decltype(auto(
                          std::remove_cvref_t<Layer>::input_extents))>::value;
 
-template <class Output, class Layer>
+export template <class Output, class Layer>
 concept output =
     is_extents_match<std::conditional_t<computation_errorable<Output>,
                                         typename Output::value_type, Output>,
@@ -145,12 +145,12 @@ concept output =
                      decltype(auto(
                          std::remove_cvref_t<Layer>::output_extents))>::value;
 
-template <class BatchInput, class Layer>
+export template <class BatchInput, class Layer>
 concept batch_input =
     !input<BatchInput, Layer> && std::ranges::input_range<BatchInput> &&
     input<std::ranges::range_value_t<std::remove_cvref_t<BatchInput>>, Layer>;
 
-template <class BatchOutput, class Layer>
+export template <class BatchOutput, class Layer>
 concept batch_output =
     (computation_errorable<BatchOutput> &&
      std::ranges::input_range<typename BatchOutput::value_type> &&
