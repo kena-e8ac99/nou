@@ -71,11 +71,10 @@ concept input =
                          std::remove_cvref_t<Layer>::input_extents))>::value;
 
 struct propagate_impl {
-  template <class Layer, class Input>
-    requires layer<std::remove_cvref_t<Layer>> && input<Input, Layer> &&
-             requires {
-               { std::declval<Layer>().propagate(std::declval<Input>()) };
-             }
+  template <class Layer, input<Layer> Input>
+    requires layer<std::remove_cvref_t<Layer>> && requires {
+      { std::declval<Layer>().propagate(std::declval<Input>()) };
+    }
   constexpr auto operator()(Layer&& layer, Input&& input) const
       noexcept(noexcept(
           std::forward<Layer>(layer).propagate(std::forward<Input>(input))))
@@ -84,9 +83,9 @@ struct propagate_impl {
     return std::forward<Layer>(layer).propagate(std::forward<Input>(input));
   }
 
-  template <class Layer, class Input>
+  template <class Layer, input<Layer> Input>
     requires(
-        layer<std::remove_cvref_t<Layer>> && input<Input, Layer> &&
+        layer<std::remove_cvref_t<Layer>> &&
         !requires { std::declval<Layer>().propagate(std::declval<Input>()); } &&
         requires {
           { propagate(std::declval<Layer>(), std::declval<Input>()) };
