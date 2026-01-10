@@ -31,43 +31,6 @@ concept layer =
     } && (T::input_extents == std::extents{T::input_extents}) &&
     (T::output_extents == std::extents{T::output_extents});
 
-// Internal helper: Type trait to detect if a type is a sequential network
-// (tuple of layers). Primary template matches non-network types.
-template <class T>
-struct is_sequential_network : public std::false_type {};
-
-// Specialization matches tuples containing only layer types.
-template <layer... Ts>
-struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
-
-/**
- * Specifies that a type is a sequential neural network.
- *
- * A sequential network is a tuple-like container of `layer` types where each
- * layer's output shape matches the next layer's input shape. Layers are
- * processed in order during propagation.
- *
- * Sequential networks are composed using `make_network()` and evaluated using
- * `predict()`. This concept distinguishes sequential networks from other
- * possible network topologies (e.g., graph-based networks) that may be added
- * in the future.
- *
- * @see make_network for how sequential networks are constructed.
- * @see predict for how sequential networks are evaluated.
- */
-export template <class T>
-concept sequential_network = is_sequential_network<T>::value;
-
-export template <class Network>
-  requires sequential_network<std::remove_cvref_t<Network>>
-using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
-
-export template <class Network>
-  requires sequential_network<std::remove_cvref_t<Network>>
-using output_layer_t =
-    std::tuple_element_t<std::tuple_size_v<std::remove_cvref_t<Network>> - 1,
-                         std::remove_cvref_t<Network>>;
-
 struct build_impl {
   template <class RealType, class T, class IndexType, std::size_t... Extents>
   constexpr auto operator()(T&& builder,
@@ -173,6 +136,44 @@ struct is_connectable<First, Second, Rest...>
           decltype(build.template operator()<typename First::real_type>(
               std::declval<Second>(), First::output_extents)),
           Rest...> {};
+
+// Internal helper: Type trait to detect if a type is a sequential network
+// (tuple of layers). Primary template matches non-network types.
+template <class T>
+struct is_sequential_network : public std::false_type {};
+
+// Specialization matches tuples containing only layer types.
+template <layer... Ts>
+  requires is_connectable<Ts...>::value
+struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
+
+/**
+ * Specifies that a type is a sequential neural network.
+ *
+ * A sequential network is a tuple-like container of `layer` types where each
+ * layer's output shape matches the next layer's input shape. Layers are
+ * processed in order during propagation.
+ *
+ * Sequential networks are composed using `make_network()` and evaluated using
+ * `predict()`. This concept distinguishes sequential networks from other
+ * possible network topologies (e.g., graph-based networks) that may be added
+ * in the future.
+ *
+ * @see make_network for how sequential networks are constructed.
+ * @see predict for how sequential networks are evaluated.
+ */
+export template <class T>
+concept sequential_network = is_sequential_network<T>::value;
+
+export template <class Network>
+  requires sequential_network<std::remove_cvref_t<Network>>
+using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
+
+export template <class Network>
+  requires sequential_network<std::remove_cvref_t<Network>>
+using output_layer_t =
+    std::tuple_element_t<std::tuple_size_v<std::remove_cvref_t<Network>> - 1,
+                         std::remove_cvref_t<Network>>;
 
 /**
  * Constructs a neural network by composing layers or layer builders.
