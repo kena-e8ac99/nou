@@ -3,6 +3,7 @@
 #include <expected>
 #include <mdspan>
 #include <ranges>
+#include <vector>
 
 import nou;
 
@@ -134,6 +135,28 @@ constexpr nou::layer auto errorable_layer_input2_output3_without_error =
 constexpr nou::layer auto errorable_layer_input3_output4_without_error =
     computation_error_layer<3, 4>{
         .output = std::array<double, 4>{7.0, 8.0, 9.0, 10.0}};
+
+template <auto InputSize, auto OutputSize, class RealType>
+struct layer_propagate_vector {
+  using real_type = RealType;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
+  std::array<real_type, OutputSize>
+      output{};  // NOLINT(misc-non-private-member-variables-in-classes)
+
+  template <std::ranges::input_range Input>
+  [[nodiscard]] constexpr auto propagate([[maybe_unused]] Input&& input) const
+      -> std::vector<real_type> {
+    return std::ranges::to<std::vector<real_type>>(output);
+  }
+};
+constexpr nou::layer auto layer_input1_output2_propagate_vector =
+    layer_propagate_vector<1, 2, double>{{2.0, 3.0}};
+constexpr nou::layer auto layer_input2_output3_propagate_vector =
+    layer_propagate_vector<2, 3, double>{{4.0, 5.0, 6.0}};
+
 }  // namespace
 
 auto main() -> int {
@@ -416,6 +439,77 @@ auto main() -> int {
                           errorable_layer_input3_output4_with_error),
         input1);
     static_assert(result.error() == nou::computation_error::invalid_input);
+  }
+
+  // --- predict layers propagating from std::vector to std::vector
+  //     (input is std::array) ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_propagate_vector,
+                          layer_input2_output3_propagate_vector);
+    static_assert(
+        std::ranges::equal(nou::predict(network, input1),
+                           layer_input2_output3_propagate_vector.output));
+  }
+
+  // --- predict layers propagating from std::array to std::vector
+  //     (input is std::array) ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_propagate_member,
+                          layer_input2_output3_propagate_vector);
+    static_assert(
+        std::ranges::equal(nou::predict(network, input1),
+                           layer_input2_output3_propagate_vector.output));
+  }
+
+  // --- predict layers propagating from std::vector to std::vector
+  //     (input is std::vector) ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_propagate_vector,
+                          layer_input2_output3_propagate_vector);
+    static_assert(std::ranges::equal(
+        nou::predict(network, std::ranges::to<std::vector<double>>(input1)),
+        layer_input2_output3_propagate_vector.output));
+  }
+
+  // --- predict layers propagating from std::array to std::vector
+  //     (input is std::vector) ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_propagate_member,
+                          layer_input2_output3_propagate_vector);
+    static_assert(std::ranges::equal(
+        nou::predict(network, std::ranges::to<std::vector<double>>(input1)),
+        layer_input2_output3_propagate_vector.output));
+  }
+
+  // --- prediction fails if input is array and extents do not match ---
+  {
+    static_assert(
+        compile_fail_predict<decltype(nou::make_network(
+                                 layer_input1_output2_propagate_member,
+                                 layer_input2_output3_propagate_member)),
+                             std::array<double, 2>>);
+  }
+
+  // --- prediction success if input extents are dynamic ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_propagate_member,
+                          layer_input2_output3_propagate_member);
+    static_assert(nou::predict(network, std::vector<double>(1.0, 1.0)) ==
+                  layer_input2_output3_propagate_member.output);
+  }
+
+  // --- prediction fails if input type do not match ---
+  {
+    static_assert(
+        compile_fail_predict<decltype(nou::make_network(
+                                 layer_input1_output2_propagate_member,
+                                 layer_input2_output3_propagate_member)),
+                             std::array<int, 1>>);
   }
 
   return 0;

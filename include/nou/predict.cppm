@@ -4,6 +4,9 @@ module;
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <mdspan>
+#include <ranges>
+#include <span>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -14,11 +17,65 @@ export import nou.core;
 
 namespace nou {
 
+template <class... Ts>
+struct is_extents_match : public std::false_type {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent>
+  requires(Extent == 1 && std::same_as<std::remove_cvref_t<T>, RealType>)
+struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
+    : public std::true_type {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent>
+  requires(!requires { std::span{std::declval<T&>()}; } &&
+           std::ranges::input_range<T> &&
+           std::same_as<std::remove_cvref_t<typename T::value_type>, RealType>)
+struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
+    : public std::true_type {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent>
+  requires(
+      requires { std::span{std::declval<T&>()}; } &&
+      std::same_as<std::ranges::range_value_t<std::remove_cvref_t<T>>,
+                   RealType> &&
+      (decltype(std::span{std::declval<T&>()})::extent == Extent ||
+       decltype(std::span{std::declval<T&>()})::extent == std::dynamic_extent))
+struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
+    : public std::true_type {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent,
+          std::size_t... Extents>
+  requires(!requires { std::span{std::declval<T&>()}; } &&
+           std::ranges::input_range<T>)
+struct is_extents_match<T, RealType,
+                        std::extents<IndexType, Extent, Extents...>>
+    : public is_extents_match<
+          std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
+          std::extents<IndexType, Extents...>> {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent,
+          std::size_t... Extents>
+  requires(requires {
+    std::span{std::declval<T&>()};
+  } && (decltype(std::span{std::declval<T&>()})::extent == Extent ||
+        decltype(std::span{std::declval<T&>()})::extent == std::dynamic_extent))
+struct is_extents_match<T, RealType,
+                        std::extents<IndexType, Extent, Extents...>>
+    : public is_extents_match<
+          std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
+          std::extents<IndexType, Extents...>> {};
+
+template <class Input, class Layer>
+concept input =
+    is_extents_match<Input, typename std::remove_cvref_t<Layer>::real_type,
+                     decltype(auto(
+                         std::remove_cvref_t<Layer>::input_extents))>::value;
+
 struct propagate_impl {
   template <class Layer, class Input>
-    requires layer<std::remove_cvref_t<Layer>> && requires {
-      { std::declval<Layer>().propagate(std::declval<Input>()) };
-    }
+    requires layer<std::remove_cvref_t<Layer>> && input<Input, Layer> &&
+             requires {
+               { std::declval<Layer>().propagate(std::declval<Input>()) };
+             }
   constexpr auto operator()(Layer&& layer, Input&& input) const
       noexcept(noexcept(
           std::forward<Layer>(layer).propagate(std::forward<Input>(input))))
@@ -29,7 +86,7 @@ struct propagate_impl {
 
   template <class Layer, class Input>
     requires(
-        layer<std::remove_cvref_t<Layer>> &&
+        layer<std::remove_cvref_t<Layer>> && input<Input, Layer> &&
         !requires { std::declval<Layer>().propagate(std::declval<Input>()); } &&
         requires {
           { propagate(std::declval<Layer>(), std::declval<Input>()) };
