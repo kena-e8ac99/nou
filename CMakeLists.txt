@@ -16,6 +16,11 @@ target_sources(nou
       include/nou/predict.cppm
       include/nou/nou.cppm)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  target_compile_options(nou PRIVATE -stdlib=libc++)
+  target_link_options(nou PRIVATE -stdlib=libc++ -lc++abi)
+endif()
+
 if(PROJECT_IS_TOP_LEVEL)
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wshadow)
