@@ -58,6 +58,12 @@ struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
 export template <class T>
 concept sequential_network = is_sequential_network<T>::value;
 
+export template <class Network>
+  requires sequential_network<std::remove_cvref_t<Network>>
+using output_layer =
+    std::tuple_element_t<std::tuple_size_v<std::remove_cvref_t<Network>> - 1,
+                         std::remove_cvref_t<Network>>;
+
 struct build_impl {
   template <class RealType, class T, class IndexType, std::size_t... Extents>
   constexpr auto operator()(T&& builder,

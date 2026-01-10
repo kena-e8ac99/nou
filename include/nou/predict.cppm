@@ -17,143 +17,6 @@ export import nou.core;
 
 namespace nou {
 
-template <class... Ts>
-struct is_extents_match : public std::false_type {};
-
-template <class T, class RealType, class IndexType, std::size_t Extent>
-  requires(Extent == 1 && std::same_as<std::remove_cvref_t<T>, RealType>)
-struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
-    : public std::true_type {};
-
-template <class T, class RealType, class IndexType, std::size_t Extent>
-  requires(!requires { std::span{std::declval<T&>()}; } &&
-           std::ranges::input_range<T> &&
-           std::same_as<std::remove_cvref_t<typename T::value_type>, RealType>)
-struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
-    : public std::true_type {};
-
-template <class T, class RealType, class IndexType, std::size_t Extent>
-  requires(
-      requires { std::span{std::declval<T&>()}; } &&
-      std::same_as<std::ranges::range_value_t<std::remove_cvref_t<T>>,
-                   RealType> &&
-      (decltype(std::span{std::declval<T&>()})::extent == Extent ||
-       decltype(std::span{std::declval<T&>()})::extent == std::dynamic_extent))
-struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
-    : public std::true_type {};
-
-template <class T, class RealType, class IndexType, std::size_t Extent,
-          std::size_t... Extents>
-  requires(!requires { std::span{std::declval<T&>()}; } &&
-           std::ranges::input_range<T>)
-struct is_extents_match<T, RealType,
-                        std::extents<IndexType, Extent, Extents...>>
-    : public is_extents_match<
-          std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
-          std::extents<IndexType, Extents...>> {};
-
-template <class T, class RealType, class IndexType, std::size_t Extent,
-          std::size_t... Extents>
-  requires(requires {
-    std::span{std::declval<T&>()};
-  } && (decltype(std::span{std::declval<T&>()})::extent == Extent ||
-        decltype(std::span{std::declval<T&>()})::extent == std::dynamic_extent))
-struct is_extents_match<T, RealType,
-                        std::extents<IndexType, Extent, Extents...>>
-    : public is_extents_match<
-          std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
-          std::extents<IndexType, Extents...>> {};
-
-template <class Input, class Layer>
-concept input =
-    is_extents_match<Input, typename std::remove_cvref_t<Layer>::real_type,
-                     decltype(auto(
-                         std::remove_cvref_t<Layer>::input_extents))>::value;
-
-struct propagate_impl {
-  template <class Layer, input<Layer> Input>
-    requires layer<std::remove_cvref_t<Layer>> && requires {
-      { std::declval<Layer>().propagate(std::declval<Input>()) };
-    }
-  constexpr auto operator()(Layer&& layer, Input&& input) const
-      noexcept(noexcept(
-          std::forward<Layer>(layer).propagate(std::forward<Input>(input))))
-          -> decltype(std::forward<Layer>(layer).propagate(
-              std::forward<Input>(input))) {
-    return std::forward<Layer>(layer).propagate(std::forward<Input>(input));
-  }
-
-  template <class Layer, input<Layer> Input>
-    requires(
-        layer<std::remove_cvref_t<Layer>> &&
-        !requires { std::declval<Layer>().propagate(std::declval<Input>()); } &&
-        requires {
-          { propagate(std::declval<Layer>(), std::declval<Input>()) };
-        })
-  constexpr auto operator()(Layer&& layer, Input&& input) const
-      noexcept(noexcept(propagate(std::forward<Layer>(layer),
-                                  std::forward<Input>(input))))
-          -> decltype(propagate(std::forward<Layer>(layer),
-                                std::forward<Input>(input))) {
-    return propagate(std::forward<Layer>(layer), std::forward<Input>(input));
-  }
-};
-
-inline namespace cpo {
-/**
- * Customization point object for invoking layer forward propagation.
- *
- * The `propagate` customization point object provides a uniform interface for
- * invoking layer forward propagation in neural network computations. It
- * supports multiple customization patterns, allowing users to define layer
- * propagation with either member functions or free/hidden friend functions.
- *
- * **Invocation Patterns:**
- * 1. **Member function**: If the layer type `Layer` provides a member function
- *    `propagate(input)`, it will be invoked as `layer.propagate(input)`.
- * 2. **Free or hidden friend function**: If the layer type `Layer` does not
- *    provide a member function but has a free function or hidden friend
- *    function `propagate(layer, input)`, it will be invoked via ADL
- *    (Argument Dependent Lookup).
- *
- * The customization point object is instantiated as the inline variable
- * `propagate` in the inline `cpo` namespace, enabling convenient usage
- * in network computations.
- *
- * **Return Types:**
- * - If the layer is error-free (cannot produce errors during computation),
- *   `propagate` returns `T` directly, where `T` is the output type of the
- *   layer.
- * - If the layer may produce errors during computation, `propagate` returns
- *   `std::expected<T, computation_error>`, enabling error propagation through
- *   the network.
- *
- * **Error Handling:**
- * When a layer returns `std::expected<T, computation_error>`, the `predict()`
- * function automatically handles error propagation:
- * - Errors are short-circuited: if a layer returns an error, subsequent layers
- *   are not executed
- * - The first encountered error is propagated to the caller
- * - If all layers are error-free, the final result is `T` (zero overhead)
- *
- * @tparam Layer The layer type (must satisfy `layer` concept)
- * @tparam Input The input type (must be compatible with the layer's
- *               `input_shape_type`)
- *
- * @return Either `T` (error-free computation) or
- *         `std::expected<T, computation_error>` (fallible computation),
- *         where `T` is the output type produced by the layer's propagation
- *
- * @note This function is fully `constexpr` and can be evaluated at
- *       compile-time if the layer's propagation operation is `constexpr`.
- *
- * @see predict for how propagation results are composed across network layers.
- * @see computation_error for possible error conditions.
- * @see computation_errorable for identifying layers that may produce errors.
- */
-export inline constexpr auto propagate = propagate_impl{};
-}  // namespace cpo
-
 /**
  * Unified error type for neural network computation failures.
  *
@@ -221,6 +84,148 @@ export template <class T>
 concept computation_errorable =
     std::same_as<T, std::expected<typename T::value_type, computation_error>>;
 
+template <class... Ts>
+struct is_extents_match : public std::false_type {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent>
+  requires(Extent == 1 && std::same_as<std::remove_cvref_t<T>, RealType>)
+struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
+    : public std::true_type {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent>
+  requires(!requires { std::span{std::declval<T&>()}; } &&
+           std::ranges::input_range<T> &&
+           std::same_as<std::remove_cvref_t<typename T::value_type>, RealType>)
+struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
+    : public std::true_type {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent>
+  requires(
+      requires { std::span{std::declval<T&>()}; } &&
+      std::same_as<std::ranges::range_value_t<std::remove_cvref_t<T>>,
+                   RealType> &&
+      (decltype(std::span{std::declval<T&>()})::extent == Extent ||
+       decltype(std::span{std::declval<T&>()})::extent == std::dynamic_extent))
+struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
+    : public std::true_type {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent,
+          std::size_t... Extents>
+  requires(!requires { std::span{std::declval<T&>()}; } &&
+           std::ranges::input_range<T>)
+struct is_extents_match<T, RealType,
+                        std::extents<IndexType, Extent, Extents...>>
+    : public is_extents_match<
+          std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
+          std::extents<IndexType, Extents...>> {};
+
+template <class T, class RealType, class IndexType, std::size_t Extent,
+          std::size_t... Extents>
+  requires(requires {
+    std::span{std::declval<T&>()};
+  } && (decltype(std::span{std::declval<T&>()})::extent == Extent ||
+        decltype(std::span{std::declval<T&>()})::extent == std::dynamic_extent))
+struct is_extents_match<T, RealType,
+                        std::extents<IndexType, Extent, Extents...>>
+    : public is_extents_match<
+          std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
+          std::extents<IndexType, Extents...>> {};
+
+template <class Input, class Layer>
+concept input =
+    is_extents_match<Input, typename std::remove_cvref_t<Layer>::real_type,
+                     decltype(auto(
+                         std::remove_cvref_t<Layer>::input_extents))>::value;
+
+template <class Output, class Layer>
+concept output =
+    is_extents_match<std::conditional_t<computation_errorable<Output>,
+                                        typename Output::value_type, Output>,
+                     typename std::remove_cvref_t<Layer>::real_type,
+                     decltype(auto(
+                         std::remove_cvref_t<Layer>::output_extents))>::value;
+
+struct propagate_impl {
+  template <class Layer, input<Layer> Input>
+    requires layer<std::remove_cvref_t<Layer>> && requires {
+      { std::declval<Layer>().propagate(std::declval<Input>()) };
+    }
+  constexpr auto operator()(Layer&& layer, Input&& input) const
+      noexcept(noexcept(std::forward<Layer>(layer).propagate(
+          std::forward<Input>(input)))) -> output<Layer> auto {
+    return std::forward<Layer>(layer).propagate(std::forward<Input>(input));
+  }
+
+  template <class Layer, input<Layer> Input>
+    requires(
+        layer<std::remove_cvref_t<Layer>> &&
+        !requires { std::declval<Layer>().propagate(std::declval<Input>()); } &&
+        requires {
+          { propagate(std::declval<Layer>(), std::declval<Input>()) };
+        })
+  constexpr auto operator()(Layer&& layer, Input&& input) const
+      noexcept(noexcept(propagate(std::forward<Layer>(layer),
+                                  std::forward<Input>(input))))
+          -> output<Layer> auto {
+    return propagate(std::forward<Layer>(layer), std::forward<Input>(input));
+  }
+};
+
+inline namespace cpo {
+/**
+ * Customization point object for invoking layer forward propagation.
+ *
+ * The `propagate` customization point object provides a uniform interface for
+ * invoking layer forward propagation in neural network computations. It
+ * supports multiple customization patterns, allowing users to define layer
+ * propagation with either member functions or free/hidden friend functions.
+ *
+ * **Invocation Patterns:**
+ * 1. **Member function**: If the layer type `Layer` provides a member function
+ *    `propagate(input)`, it will be invoked as `layer.propagate(input)`.
+ * 2. **Free or hidden friend function**: If the layer type `Layer` does not
+ *    provide a member function but has a free function or hidden friend
+ *    function `propagate(layer, input)`, it will be invoked via ADL
+ *    (Argument Dependent Lookup).
+ *
+ * The customization point object is instantiated as the inline variable
+ * `propagate` in the inline `cpo` namespace, enabling convenient usage
+ * in network computations.
+ *
+ * **Return Types:**
+ * - If the layer is error-free (cannot produce errors during computation),
+ *   `propagate` returns `T` directly, where `T` is the output type of the
+ *   layer.
+ * - If the layer may produce errors during computation, `propagate` returns
+ *   `std::expected<T, computation_error>`, enabling error propagation through
+ *   the network.
+ *
+ * **Error Handling:**
+ * When a layer returns `std::expected<T, computation_error>`, the `predict()`
+ * function automatically handles error propagation:
+ * - Errors are short-circuited: if a layer returns an error, subsequent layers
+ *   are not executed
+ * - The first encountered error is propagated to the caller
+ * - If all layers are error-free, the final result is `T` (zero overhead)
+ *
+ * @tparam Layer The layer type (must satisfy `layer` concept)
+ * @tparam Input The input type (must be compatible with the layer's
+ *               `input_shape_type`)
+ *
+ * @return Either `T` (error-free computation) or
+ *         `std::expected<T, computation_error>` (fallible computation),
+ *         where `T` is the output type produced by the layer's propagation
+ *
+ * @note This function is fully `constexpr` and can be evaluated at
+ *       compile-time if the layer's propagation operation is `constexpr`.
+ *
+ * @see predict for how propagation results are composed across network layers.
+ * @see computation_error for possible error conditions.
+ * @see computation_errorable for identifying layers that may produce errors.
+ */
+export inline constexpr auto propagate = propagate_impl{};
+}  // namespace cpo
+
 // Internal helper: Recursive implementation of predict.
 template <std::size_t I, class Network, class Input>
   requires(I < std::tuple_size_v<std::remove_cvref_t<Network>>) &&
@@ -229,7 +234,8 @@ template <std::size_t I, class Network, class Input>
                          std::tuple_element_t<I, std::remove_cvref_t<Network>>,
                          Input>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
-constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
+constexpr auto predict_impl(Network&& network, Input&& input)
+    -> output<output_layer<Network>> auto {
   auto intermediate =
       propagate(std::get<I>(network), std::forward<Input>(input));
 
@@ -295,7 +301,8 @@ export template <class Network, class Input>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto predict(Network&& network, Input&& input) noexcept(
     noexcept(predict_impl<0>(std::forward<Network>(network),
-                             std::forward<Input>(input)))) -> auto {
+                             std::forward<Input>(input))))
+    -> output<output_layer<Network>> auto {
   return predict_impl<0>(std::forward<Network>(network),
                          std::forward<Input>(input));
 }
