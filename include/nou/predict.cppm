@@ -340,8 +340,9 @@ constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
  * @see propagate for the underlying layer computation
  */
 export template <class Network, input<first_layer_t<Network>> Input>
-  requires sequential_network<std::remove_cvref_t<Network>> &&
-           std::invocable<decltype(propagate), first_layer_t<Network>, Input>
+  requires sequential_network<std::remove_cvref_t<Network>> && requires {
+    predict_impl<0>(std::declval<Network>(), std::declval<Input>());
+  }
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto predict(Network&& network, Input&& input) noexcept(
     noexcept(predict_impl<0>(std::forward<Network>(network),
@@ -352,10 +353,9 @@ constexpr auto predict(Network&& network, Input&& input) noexcept(
 }
 
 export template <class Network, batch_input<first_layer_t<Network>> Input>
-  requires sequential_network<std::remove_cvref_t<Network>> &&
-           std::invocable<decltype(propagate),
-                          std::tuple_element_t<0, std::remove_cvref_t<Network>>,
-                          Input>
+  requires sequential_network<std::remove_cvref_t<Network>> && requires {
+    predict_impl<0>(std::declval<Network>(), std::declval<Input>());
+  }
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto predict(Network&& network, Input&& input) noexcept(
     noexcept(predict_impl<0>(std::forward<Network>(network),
