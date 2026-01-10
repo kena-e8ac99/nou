@@ -60,11 +60,11 @@ concept sequential_network = is_sequential_network<T>::value;
 
 export template <class Network>
   requires sequential_network<std::remove_cvref_t<Network>>
-using first_layer = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
+using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
 
 export template <class Network>
   requires sequential_network<std::remove_cvref_t<Network>>
-using output_layer =
+using output_layer_t =
     std::tuple_element_t<std::tuple_size_v<std::remove_cvref_t<Network>> - 1,
                          std::remove_cvref_t<Network>>;
 
