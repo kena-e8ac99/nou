@@ -274,7 +274,7 @@ export inline constexpr auto propagate = propagate_impl{};
 }  // namespace cpo
 
 // Internal helper: Recursive implementation of predict.
-template <std::size_t I, class Network, class Input>
+template <std::size_t I = 0, class Network, class Input>
   requires(I < std::tuple_size_v<std::remove_cvref_t<Network>>) &&
           sequential_network<std::remove_cvref_t<Network>> &&
           std::invocable<decltype(propagate),
@@ -341,28 +341,26 @@ constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
  */
 export template <class Network, input<first_layer_t<Network>> Input>
   requires sequential_network<std::remove_cvref_t<Network>> && requires {
-    predict_impl<0>(std::declval<Network>(), std::declval<Input>());
+    predict_impl(std::declval<Network>(), std::declval<Input>());
   }
 // NOLINTNEXTLINE(misc-use-internal-linkage)
-constexpr auto predict(Network&& network, Input&& input) noexcept(
-    noexcept(predict_impl<0>(std::forward<Network>(network),
-                             std::forward<Input>(input))))
+constexpr auto predict(Network&& network, Input&& input) noexcept(noexcept(
+    predict_impl(std::forward<Network>(network), std::forward<Input>(input))))
     -> output<output_layer_t<Network>> auto {
-  return predict_impl<0>(std::forward<Network>(network),
-                         std::forward<Input>(input));
+  return predict_impl(std::forward<Network>(network),
+                      std::forward<Input>(input));
 }
 
 export template <class Network, batch_input<first_layer_t<Network>> Input>
   requires sequential_network<std::remove_cvref_t<Network>> && requires {
-    predict_impl<0>(std::declval<Network>(), std::declval<Input>());
+    predict_impl(std::declval<Network>(), std::declval<Input>());
   }
 // NOLINTNEXTLINE(misc-use-internal-linkage)
-constexpr auto predict(Network&& network, Input&& input) noexcept(
-    noexcept(predict_impl<0>(std::forward<Network>(network),
-                             std::forward<Input>(input))))
+constexpr auto predict(Network&& network, Input&& input) noexcept(noexcept(
+    predict_impl(std::forward<Network>(network), std::forward<Input>(input))))
     -> batch_output<output_layer_t<Network>> auto {
-  return predict_impl<0>(std::forward<Network>(network),
-                         std::forward<Input>(input));
+  return predict_impl(std::forward<Network>(network),
+                      std::forward<Input>(input));
 }
 
 }  // namespace nou
