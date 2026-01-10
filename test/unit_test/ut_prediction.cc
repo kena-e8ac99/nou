@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <expected>
+#include <mdspan>
 #include <ranges>
 
 import nou;
@@ -12,9 +13,11 @@ concept compile_fail_predict =
 
 template <auto InputSize, auto OutputSize, class RealType>
 struct layer_propagate_member {
-  using input_shape_type = nou::shape<InputSize>;
-  using output_shape_type = nou::shape<OutputSize>;
   using real_type = RealType;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
   std::array<real_type, InputSize>
       passed_input{};  // NOLINT(misc-non-private-member-variables-in-classes)
   std::array<real_type, OutputSize>
@@ -44,9 +47,11 @@ constexpr nou::layer auto layer_input3_output4_propagate_member =
 
 template <auto InputSize, auto OutputSize, class RealType>
 struct layer_propagate_free_func {
-  using input_shape_type = nou::shape<InputSize>;
-  using output_shape_type = nou::shape<OutputSize>;
   using real_type = RealType;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
   std::array<real_type, OutputSize>
       output{};  // NOLINT(misc-non-private-member-variables-in-classes)
 };
@@ -64,9 +69,11 @@ constexpr nou::layer auto layer_input2_output3_propagate_free_func =
 
 template <auto InputSize, auto OutputSize, class RealType>
 struct layer_propagate_hidden_friend {
-  using input_shape_type = nou::shape<InputSize>;
-  using output_shape_type = nou::shape<OutputSize>;
   using real_type = RealType;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
   std::array<real_type, OutputSize>
       output{};  // NOLINT(misc-non-private-member-variables-in-classes)
 
@@ -84,18 +91,22 @@ constexpr nou::layer auto layer_input2_output3_propagate_hidden_friend =
 
 template <auto InputSize, auto OutputSize, class RealType>
 struct not_propagatable_layer {
-  using input_shape_type = nou::shape<InputSize>;
-  using output_shape_type = nou::shape<OutputSize>;
   using real_type = RealType;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
 };
 constexpr auto not_propagatable_layer_input1_output2 =
     not_propagatable_layer<1, 2, double>{};
 
 template <auto InputSize, auto OutputSize>
 struct computation_error_layer {
-  using input_shape_type = nou::shape<InputSize>;
-  using output_shape_type = nou::shape<OutputSize>;
   using real_type = double;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
   std::expected<std::array<real_type, OutputSize>, nou::computation_error>
       output{};  // NOLINT(misc-non-private-member-variables-in-classes)
 

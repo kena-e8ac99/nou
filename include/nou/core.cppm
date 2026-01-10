@@ -1,7 +1,7 @@
 module;
 
-#include <concepts>
 #include <cstddef>
+#include <mdspan>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -9,25 +9,6 @@ module;
 export module nou.core;
 
 namespace nou {
-
-/**
- * A compile-time shape descriptor template for neural network dimensions.
- *
- * This template struct represents a single dimension size in a neural network
- * shape, constrained to positive integral values known at compile-time.
- *
- * The struct exposes the dimension value through:
- * - `type`  : the type of the dimension constant (e.g., int)
- * - `value` : the dimension size as a `constexpr` value
- *
- * @tparam N A positive integral constant representing the dimension size.
- */
-export template <std::integral auto N>
-  requires(N > 0)
-struct shape {
-  using type = decltype(N);
-  static constexpr type value = N;
-};
 
 /**
  * Specifies that a type can be used as a neural network layer.
@@ -42,15 +23,13 @@ struct shape {
  * dimension of the layer
  */
 export template <class T>
-concept layer = requires {
-  typename T::real_type;
-  typename T::input_shape_type;
-  typename T::output_shape_type;
-  requires std::same_as<typename T::input_shape_type,
-                        shape<T::input_shape_type::value>>;
-  requires std::same_as<typename T::output_shape_type,
-                        shape<T::output_shape_type::value>>;
-};
+concept layer =
+    requires {
+      typename T::real_type;
+      T::input_extents;
+      T::output_extents;
+    } && (T::input_extents == std::extents{T::input_extents}) &&
+    (T::output_extents == std::extents{T::output_extents});
 
 // Internal helper: Type trait to detect if a type is a sequential network
 // (tuple of layers). Primary template matches non-network types.
@@ -80,26 +59,34 @@ export template <class T>
 concept sequential_network = is_sequential_network<T>::value;
 
 struct build_impl {
-  template <class RealType, class Shape, class T>
+  template <class RealType, class T, class IndexType, std::size_t... Extents>
+  constexpr auto operator()(T&& builder,
+                            std::extents<IndexType, Extents...> extents) const
+      noexcept(
+          noexcept(std::forward<T>(builder).template build<RealType>(extents)))
+          -> layer auto
     requires requires {
-      { std::declval<T>().template build<RealType, Shape>() } -> layer;
+      { std::forward<T>(builder).template build<RealType>(extents) } -> layer;
     }
-  constexpr auto operator()(T&& builder) const noexcept(
-      noexcept(std::forward<T>(builder).template build<RealType, Shape>()))
-      -> layer auto {
-    return std::forward<T>(builder).template build<RealType, Shape>();
+  {
+    return std::forward<T>(builder).template build<RealType>(
+        std::move(extents));
   }
 
-  template <class RealType, class Shape, class T>
+  template <class RealType, class T, class IndexType, std::size_t... Extents>
+  constexpr auto operator()(T&& builder,
+                            std::extents<IndexType, Extents...> extents) const
+      noexcept(noexcept(build<RealType>(std::forward<T>(builder), extents)))
+          -> layer auto
     requires(
-        !requires { std::declval<T>().template build<RealType, Shape>(); } &&
+        !requires {
+          std::forward<T>(builder).template build<RealType>(extents);
+        } &&
         requires {
-          { build<RealType, Shape>(std::declval<T>()) } -> layer;
+          { build<RealType>(std::forward<T>(builder), extents) } -> layer;
         })
-  constexpr auto operator()(T&& builder) const
-      noexcept(noexcept(build<RealType, Shape>(std::forward<T>(builder))))
-          -> layer auto {
-    return build<RealType, Shape>(std::forward<T>(builder));
+  {
+    return build<RealType>(std::forward<T>(builder), std::move(extents));
   }
 };
 inline namespace cpo {
@@ -156,13 +143,7 @@ struct is_connectable<Layer> : public std::true_type {};
 // Recursive case: Two consecutive layers can connect if their output/input
 // shapes match. Recursively checks the remaining layers.
 template <layer First, layer Second, class... Rest>
-  requires(
-      static_cast<std::common_type_t<typename First::output_shape_type::type,
-                                     typename Second::input_shape_type::type>>(
-          First::output_shape_type::value) ==
-      static_cast<std::common_type_t<typename First::output_shape_type::type,
-                                     typename Second::input_shape_type::type>>(
-          Second::input_shape_type::value))
+  requires(First::output_extents == Second::input_extents)
 struct is_connectable<First, Second, Rest...>
     : public is_connectable<Second, Rest...> {};
 
@@ -172,17 +153,15 @@ struct is_connectable<First, Second, Rest...>
 template <layer First, class Second, class... Rest>
   requires requires {
     {
-      build.template
-      operator()<typename First::real_type, typename First::output_shape_type>(
-          std::declval<Second>())
+      build.template operator()<typename First::real_type>(
+          std::declval<Second>(), First::output_extents)
     } -> layer;
   }
 struct is_connectable<First, Second, Rest...>
     : public is_connectable<
           First,
-          decltype(build.template operator()<typename First::real_type,
-                                             typename First::output_shape_type>(
-              std::declval<Second>())),
+          decltype(build.template operator()<typename First::real_type>(
+              std::declval<Second>(), First::output_extents)),
           Rest...> {};
 
 /**
@@ -229,11 +208,8 @@ constexpr auto make_network(First first, Second second, Rest... rest)
       return std::move(std::get<I>(tuple));
     } else {
       using prev_layer_type = std::tuple_element_t<I - 1, T>;
-      using real_type = prev_layer_type::real_type;
-      using input_shape_type = prev_layer_type::output_shape_type;
-
-      return build.template operator()<real_type, input_shape_type>(
-          std::move(std::get<I>(tuple)));
+      return build.template operator()<typename prev_layer_type::real_type>(
+          std::move(std::get<I>(tuple)), prev_layer_type::output_extents);
     }
   };
   return [&]<std::size_t... Is>(auto tuple, std::index_sequence<Is...>)
