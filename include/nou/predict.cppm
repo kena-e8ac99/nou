@@ -268,26 +268,42 @@ concept output =
  * @brief Specifies that a type is compatible as batch layer output.
  *
  * The concept batch_output<BatchOutput, Layer> specifies that BatchOutput is a
- * valid batch output from the given Layer. A batch output is a range of
- * individual outputs, where each element satisfies the `output` concept.
- *
- * This concept handles two forms:
- * 1. **Error-free batch**: Range of plain outputs (e.g., std::vector<T>)
- * 2. **Fallible batch**: std::expected<Range<T>, computation_error> for
- *    short-circuit error handling
+ * valid batch output from the given Layer. The batch output may or may not
+ * satisfy computation_errorable<BatchOutput> depending on layer`s error
+ * handling behavior.
  *
  * ### Semantic requirements
- * For error-free batches:
- * - BatchOutput is an input_range
- * - Each element satisfies output<Element, Layer>
+ * batch_output<BatchOutput, Layer> is modeled only if Layer models the layer
+ * concept and the following holds:
+ * - If BatchOutput satisfies computation_errorable<BatchOutput>, let
+ *   `BatchOutput::value_type` be R, then:
+ *   - R models `std::ranges::input_range`
+ *   - Each Element of R satisfies output<Element, Layer>
+ * - If BatchOutput does not satisfy computation_errorable<BatchOutput>, then:
+ *   - BatchOutput models `std::ranges::input_range`
+ *   - Each Element of BatchOutput satisfies output<Element, Layer>
  *
- * For fallible batches:
- * - BatchOutput is std::expected<R, computation_error>
- * - R is an input_range
- * - Each element of R satisfies output<Element, Layer>
+ * ### Example
+ * ```cpp
+ * struct my_layer {
+ *   using real_type = float;
+ *   static constexpr std::extents<std::size_t, 3> output_extents{};
+ *   // ...
+ * };
+ * // Fixed-size batch of 10 samples
+ * static_assert(
+ *    nou::batch_output<std::array<std::array<float, 3>, 10>, my_layer>);
+ * // Dynamic-size batch of samples
+ * static_assert(
+ *    nou::batch_output<std::vector<std::array<float, 3>>, my_layer>);
+ * // Errorable batch output
+ * static_assert(
+ *    nou::batch_output<std::expected<std::vector<std::array<float, 3>>,
+ *    nou::computation_error>, my_layer>);
+ * ```
  *
  * @tparam BatchOutput The batch output type to validate
- * @tparam Layer The layer type (must satisfy `layer` concept)
+ * @tparam Layer The layer type that models the layer concept
  *
  * @see output for individual output requirements
  * @see batch_input for the corresponding input concept
