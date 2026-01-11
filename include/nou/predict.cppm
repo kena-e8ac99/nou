@@ -18,7 +18,7 @@ export import nou.core;
 namespace nou {
 
 /**
- * Unified error type for neural network computation failures.
+ * @brief Unified error type for neural network computation failures.
  *
  * This enumeration represents error conditions that can occur during neural
  * network computations, including layer propagation, training, and evaluation.
