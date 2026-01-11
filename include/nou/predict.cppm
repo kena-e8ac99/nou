@@ -29,19 +29,6 @@ namespace nou {
  * in `std::expected` and cache utilization. This provides 256 possible error
  * values, which is more than sufficient for neural network computation errors.
  *
- * **Design Philosophy:**
- * - Layers that cannot produce errors return values directly (type `T`)
- * - Layers that may produce errors return `std::expected<T, computation_error>`
- * - Operations like `predict()`, `fit()`, `evaluate()` propagate this unified
- *   error type across all layers
- * - This conditional approach achieves zero overhead for error-free paths
- * - Single error type enables consistent error handling across all operations
- *
- * **Adding new values:**
- * - New values are added incrementally during operation/layer implementation
- * - Add a value when its error condition is discovered in actual code
- * - Keep values focused on actionable runtime errors
- *
  * @see predict for how error types are composed across network layers.
  * @see propagate for the underlying computation that may produce errors.
  */
