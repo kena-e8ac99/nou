@@ -75,14 +75,18 @@ export template <class T>
 concept computation_errorable =
     std::same_as<T, std::expected<typename T::value_type, computation_error>>;
 
+// Internal helper: Type trait to check if an input type matches layer extents.
+// Primary template: Default to false for non-matching types.
 template <class... Ts>
 struct is_extents_match : public std::false_type {};
 
+// Base case: Match with single-element scalar (extent == 1).
 template <class T, class RealType, class IndexType, std::size_t Extent>
   requires(Extent == 1 && std::same_as<std::remove_cvref_t<T>, RealType>)
 struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
     : public std::true_type {};
 
+// Base case: Match non-span-compatible range with correct value type.
 template <class T, class RealType, class IndexType, std::size_t Extent>
   requires(!requires { std::span{std::declval<T&>()}; } &&
            std::ranges::input_range<T> &&
@@ -90,6 +94,8 @@ template <class T, class RealType, class IndexType, std::size_t Extent>
 struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
     : public std::true_type {};
 
+// Base case: Match span-compatible range with correct extent or dynamic extent
+// and correct value type.
 template <class T, class RealType, class IndexType, std::size_t Extent>
   requires(
       requires { std::span{std::declval<T&>()}; } &&
@@ -100,6 +106,8 @@ template <class T, class RealType, class IndexType, std::size_t Extent>
 struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
     : public std::true_type {};
 
+// Recursive case: Match non-span-compatible range for multi-dimensional
+// extents.
 template <class T, class RealType, class IndexType, std::size_t Extent,
           std::size_t... Extents>
   requires(!requires { std::span{std::declval<T&>()}; } &&
@@ -110,6 +118,8 @@ struct is_extents_match<T, RealType,
           std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
           std::extents<IndexType, Extents...>> {};
 
+// Recursive case: Match span-compatible range for multi-dimensional extents
+// with correct extent or dynamic extent.
 template <class T, class RealType, class IndexType, std::size_t Extent,
           std::size_t... Extents>
   requires(requires {
@@ -122,12 +132,112 @@ struct is_extents_match<T, RealType,
           std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
           std::extents<IndexType, Extents...>> {};
 
+/**
+ * @brief Specifies that a type is compatible as layer input.
+ *
+ * The concept input<Input, Layer> specifies that Input is a valid input type
+ * for the given Layer. The input must match the layer's real_type and
+ * input_extents shape.
+ *
+ * ### Semantic requirements
+ * input<Input, Layer> is modeled only if Layer models the layer concept and
+ * either of the following holds:
+ * - If `Layer::input_extents` is rank 1 with extent 1:
+ *   - Input is same as `Layer::real_type`
+ * - If `Layer::input_extents` is rank 1 with extent $N \ge 1$:
+ *   - Input models `std::ranges::input_range`
+ *   - `std::ranges::range_value_t<Input>` is the same as `Layer::real_type`
+ *   - If Input is a contiguous range (or more specifically, `std::span` is
+ *     constructible from Input) and its extent is known at compile-time (e.g.,
+ *     `std::array`), its extent is N
+ * - If `Layer::input_extents` is rank > 1 and outermost extent is $M \ge 1$:
+ *   - Input models `std::ranges::input_range`
+ *   - If Input is a contiguous range (or more specifically, `std::span` is
+ *     constructible from Input) and its extent is known at compile-time (e.g.,
+ *     `std::array`), its extent is M
+ *   - The value type of Input recursively satisfy the same rules with respect
+ *     to `Layer::input_extents` excluding the outermost extent
+ *
+ * ### Example
+ * ```cpp
+ * struct my_layer {
+ *   using real_type = float;
+ *   static constexpr std::extents<std::size_t, 3> input_extents{};
+ *   // ...
+ * };
+ * static_assert(nou::input<std::array<float, 3>, my_layer>); // fixed extent 3
+ * static_assert(nou::input<std::vector<float>, my_layer>);   // dynamic extent
+ * ```
+ *
+ * @tparam Input The input type to validate.
+ * @tparam Layer The layer type that models the `layer` concept.
+ */
 export template <class Input, class Layer>
 concept input =
     is_extents_match<Input, typename std::remove_cvref_t<Layer>::real_type,
                      decltype(auto(
                          std::remove_cvref_t<Layer>::input_extents))>::value;
 
+/**
+ * @brief Specifies that a type is compatible as batch layer input.
+ *
+ * The concept batch_input<BatchInput, Layer> specifies that BatchInput is a
+ * valid batch input for the given Layer. A batch input is a range of individual
+ * inputs, where each element satisfies the `input` concept for the layer.
+ * This concept supports both fixed-size and dynamic-size batch inputs.
+ *
+ * ### Semantic requirements
+ * batch_input<BatchInput, Layer> is modeled only if Layer models the layer
+ * concept and the following holds:
+ * - Disambiguation: BatchInput and Layer do not satisfy `input<BatchInput,
+ *   Layer>` (if a type can satisfy both a single input and batch input, it is
+ *   treated as a single input)
+ * - BatchInput models `std::ranges::input_range`
+ * - Each element in the range must satisfy input<Element, Layer>
+ *
+ * ### Example
+ * ```cpp
+ * struct my_layer {
+ *   using real_type = float;
+ *   static constexpr std::extents<std::size_t, 3> input_extents{};
+ *   // ...
+ * };
+ * // Fixed-size batch of 10 samples
+ * static_assert(
+ *    nou::batch_input<std::array<std::array<float, 3>, 10>, my_layer>);
+ * // Dynamic-size batch of samples
+ * static_assert(
+ *    nou::batch_input<std::vector<std::array<float, 3>>, my_layer>);
+ * ```
+ *
+ * @tparam BatchInput The batch input type to validate
+ * @tparam Layer The layer type that models the layer concept
+ *
+ * @see input for individual input requirements
+ */
+export template <class BatchInput, class Layer>
+concept batch_input =
+    !input<BatchInput, Layer> && std::ranges::input_range<BatchInput> &&
+    input<std::ranges::range_value_t<std::remove_cvref_t<BatchInput>>, Layer>;
+
+/**
+ * @brief Specifies that a type is compatible as layer output.
+ *
+ * The concept output<Output, Layer> specifies that Output is a valid output
+ * type from the given Layer. The output must match the layer's expected
+ * real_type and output_extents shape.
+ *
+ * This concept handles both error-free and fallible outputs:
+ * - For plain types: validates Output directly against output_extents
+ * - For std::expected: validates the value_type against output_extents
+ *
+ * @tparam Output The output type to validate (may be T or std::expected<T, E>)
+ * @tparam Layer The layer type (must satisfy `layer` concept)
+ *
+ * @see computation_errorable for error-handling output types
+ * @see is_extents_match for the underlying validation logic
+ * @see propagate for how output compatibility is enforced
+ */
 export template <class Output, class Layer>
 concept output =
     is_extents_match<std::conditional_t<computation_errorable<Output>,
@@ -136,11 +246,35 @@ concept output =
                      decltype(auto(
                          std::remove_cvref_t<Layer>::output_extents))>::value;
 
-export template <class BatchInput, class Layer>
-concept batch_input =
-    !input<BatchInput, Layer> && std::ranges::input_range<BatchInput> &&
-    input<std::ranges::range_value_t<std::remove_cvref_t<BatchInput>>, Layer>;
-
+/**
+ * @brief Specifies that a type is compatible as batch layer output.
+ *
+ * The concept batch_output<BatchOutput, Layer> specifies that BatchOutput is a
+ * valid batch output from the given Layer. A batch output is a range of
+ * individual outputs, where each element satisfies the `output` concept.
+ *
+ * This concept handles two forms:
+ * 1. **Error-free batch**: Range of plain outputs (e.g., std::vector<T>)
+ * 2. **Fallible batch**: std::expected<Range<T>, computation_error> for
+ *    short-circuit error handling
+ *
+ * ### Semantic requirements
+ * For error-free batches:
+ * - BatchOutput is an input_range
+ * - Each element satisfies output<Element, Layer>
+ *
+ * For fallible batches:
+ * - BatchOutput is std::expected<R, computation_error>
+ * - R is an input_range
+ * - Each element of R satisfies output<Element, Layer>
+ *
+ * @tparam BatchOutput The batch output type to validate
+ * @tparam Layer The layer type (must satisfy `layer` concept)
+ *
+ * @see output for individual output requirements
+ * @see batch_input for the corresponding input concept
+ * @see computation_errorable for error-handling types
+ */
 export template <class BatchOutput, class Layer>
 concept batch_output =
     (computation_errorable<BatchOutput> &&
