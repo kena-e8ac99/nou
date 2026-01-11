@@ -38,8 +38,8 @@ namespace nou {
  *
  * @tparam T The type to be checked.
  * @note This concept does not describe how the layer performs forward
- *       propagation, backpropagation, or parameter updates. Those behaviors are
- *       modeled separately.
+ *       propagation, back-propagation, or parameter updates. Those behaviors
+ *       are modeled separately.
  * @see make_network for how layers are composed into networks.
  * @see propagate for concepts that layers should satisfy during propagation.
  */
