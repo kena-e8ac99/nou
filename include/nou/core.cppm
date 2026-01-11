@@ -16,13 +16,15 @@ namespace nou {
  *
  * The concept layer<T> specifies that T is the type of a layer that can be used
  * to construct a neural network.
+ *
+ * ### Semantics requirements
  * layer<T> is modeled only if T provides the following members:
  * - `T::real_type`: A member type used for computations within the layer
  * - `T::input_extents` and `T::output_extents`: Static data members whose types
  *   are specializations of `std::extents`. **They describe the shape of a
  *   single sample (excluding batch dimension)**.
  *
- * Example:
+ * ### Example
  * ```cpp
  * struct my_layer {
  *   using real_type = float;
