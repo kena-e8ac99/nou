@@ -178,29 +178,55 @@ struct is_connectable<First, Second, Rest...>
           Rest...> {};
 
 // Internal helper: Type trait to detect if a type is a sequential network
-// (tuple of layers). Primary template matches non-network types.
+// which is a tuple of layers where all layers satisfy is_connectable.
 template <class T>
 struct is_sequential_network : public std::false_type {};
 
-// Specialization matches tuples containing only layer types.
+// Specialization matches tuples containing only layer types that are
+// connectable.
 template <layer... Ts>
   requires is_connectable<Ts...>::value
 struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
 
 /**
- * Specifies that a type is a sequential neural network.
+ * @brief Specifies that a type qualifies as a sequential neural network.
  *
- * A sequential network is a tuple-like container of `layer` types where each
- * layer's output shape matches the next layer's input shape. Layers are
- * processed in order during propagation.
+ * The concept sequential_network<T> specifies that T is the type of a
+ * sequential neural network composed of two or more layers where each layer's
+ * output shape matches the subsequent layer's input shape.
  *
- * Sequential networks are composed using `make_network()` and evaluated using
- * `predict()`. This concept distinguishes sequential networks from other
- * possible network topologies (e.g., graph-based networks) that may be added
- * in the future.
+ * ### Semantic requirements
+ * sequential_network<T> is modeled only if:
+ * - T is a specialization of `std::tuple` where each element models the layer
+ *   concept
+ * - T contains two or more layers
+ * - For each adjacent pair of layers ($L_i$, $L_{i+1}$) in `T`:
+ *   - $L_i::output\_extents == L_{i+1}::input\_extents$ (The output shape of a
+ *     layer must exactly match the input shape of the next layer).
  *
- * @see make_network for how sequential networks are constructed.
- * @see predict for how sequential networks are evaluated.
+ * ### Example
+ * ```cpp
+ * struct layer1 {
+ *   using real_type = float;
+ *   static constexpr std::extents<std::size_t, 2> input_extents{};
+ *   static constexpr std::extents<std::size_t, 3> output_extents{};
+ *   // ...
+ * };
+ * struct layer2 {
+ *   using real_type = float;
+ *   static constexpr std::extents<std::size_t, 3> input_extents{};
+ *   static constexpr std::extents<std::size_t, 4> output_extents{};
+ *   // ...
+ * };
+ *
+ * // Matches: layer1 output [3] == layer2 input [3]
+ * using my_network = std::tuple<layer1, layer2>;
+ * static_assert(nou::sequential_network<my_network>);
+ * ```
+ *
+ * @tparam T The type to be checked.
+ * @see layer for the requirements on individual layers.
+ * @see make_network for how sequential network is constructed.
  */
 export template <class T>
 concept sequential_network = is_sequential_network<T>::value;
