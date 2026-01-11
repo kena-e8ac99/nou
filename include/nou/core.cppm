@@ -1,5 +1,6 @@
 module;
 
+#include <concepts>
 #include <cstddef>
 #include <mdspan>
 #include <tuple>
@@ -11,16 +12,36 @@ export module nou.core;
 namespace nou {
 
 /**
- * Specifies that a type can be used as a neural network layer.
+ * @brief Specifies that a type qualifies as a neural network layer.
  *
- * The layer concept specifies that a type provides the following member types
- * required for neural network layers.
- * - `real_type`: a type used for computations (typically floating-point, but
- * can be others)
- * - `input_shape_type`: a specialization of `shape`, representing the input
- *   dimension of the layer
- * - `output_shape_type`: a specialization of `shape`, representing the output
- * dimension of the layer
+ * The concept layer<T> specifies that T is the type of a layer that can be used
+ * to construct a neural network.
+ * layer<T> is modeled only if T provides the following members:
+ * - `T::real_type`: A member type used for computations within the layer
+ * - `T::input_extents` and `T::output_extents`: Static data members whose types
+ *   are specializations of `std::extents`. **They describe the shape of a
+ *   single sample (excluding batch dimension)**.
+ *
+ * Example:
+ * ```cpp
+ * struct my_layer {
+ *   using real_type = float;
+ *   // Defines a 1D input of size 2 (per sample).
+ *   // Note: batch dimension is not included here.
+ *   static constexpr std::extents<std::size_t, 2> input_extents{};
+ *   // Defines a 1D output of size 3 (per sample).
+ *   static constexpr std::extents<std::size_t, 3> output_extents{};
+ *   // ...
+ * };
+ * static_assert(nou::layer<my_layer>);
+ * ```
+ *
+ * @tparam T The type to be checked.
+ * @note This concept does not describe how the layer performs forward
+ *       propagation, backpropagation, or parameter updates. Those behaviors are
+ *       modeled separately.
+ * @see make_network for how layers are composed into networks.
+ * @see propagate for concepts that layers should satisfy during propagation.
  */
 export template <class T>
 concept layer =
@@ -28,8 +49,11 @@ concept layer =
       typename T::real_type;
       T::input_extents;
       T::output_extents;
-    } && (T::input_extents == std::extents{T::input_extents}) &&
-    (T::output_extents == std::extents{T::output_extents});
+    } &&
+    std::same_as<decltype(auto(T::input_extents)),
+                 decltype(std::extents{T::input_extents})> &&
+    std::same_as<decltype(auto(T::output_extents)),
+                 decltype(std::extents{T::output_extents})>;
 
 struct build_impl {
   template <class RealType, class T, class IndexType, std::size_t... Extents>
