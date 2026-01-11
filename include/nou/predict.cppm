@@ -39,7 +39,7 @@ export enum class computation_error : std::uint8_t {
    * Common causes:
    * - NaN (Not a Number) detected in input or intermediate computation
    * - Inf (Infinity) detected in input or intermediate computation
-   * - Value range violation (if enforced by a layer)
+   * - Value range violation (e.g., probability input not in [0, 1])
    */
   invalid_input,
 
@@ -49,7 +49,7 @@ export enum class computation_error : std::uint8_t {
    * Common causes:
    * - Overflow in floating-point arithmetic
    * - Underflow causing loss of precision
-   * - Accumulation of rounding errors
+   * - Accumulation of rounding errors leading to invalid results
    */
   numerical_instability
 };
@@ -63,9 +63,9 @@ export enum class computation_error : std::uint8_t {
  * `computation_error`.
  *
  * ### Syntactic requirements
- * Let `U` be the type of the successful computation result,
- * computation_errorable<T> is satisfied only if T is a specialization of
- * `std::expected<U, computation_error>`.
+ * Let `U` be the type of the successful computation result.
+ * computation_errorable<T> is satisfied only if T is exactly a specialization
+ * of `std::expected<U, computation_error>`.
  *
  * @tparam T The type to check
  *
@@ -231,11 +231,11 @@ concept batch_input =
  * output<Output, Layer> is modeled only if Layer models the layer concept and
  * either of the following holds:
  * - If Output satisfies computation_errorable<Output>, `Output::value_type`
- *   matches the layer's real_type and output_extents shape (see `input` concept
- *   for shape matching rules)
- * - If Output does not satisfy computation_errorable<Output>, Output matches
- *   the layer's real_type and output_extents shape (see `input` concept for
- *   shape matching rules)
+ *   matches the layer's real_type and output_extents shape
+ * - If Output does not satisfy computation_errorable<Output>, Output itself
+ *   matches the layer's real_type and output_extents shape
+ *
+ * (See `input` concept for detailed shape matching rules).
  *
  * ### Example
  * ```cpp
@@ -255,6 +255,7 @@ concept batch_input =
  * @tparam Layer The layer type that models the `layer` concept
  *
  * @see computation_errorable for error-handling output types
+ * @see input for shape matching rules
  */
 export template <class Output, class Layer>
 concept output =
@@ -278,10 +279,10 @@ concept output =
  * - If BatchOutput satisfies computation_errorable<BatchOutput>, let
  *   `BatchOutput::value_type` be R, then:
  *   - R models `std::ranges::input_range`
- *   - Each Element of R satisfies output<Element, Layer>
+ *   - Each element of R satisfies output<Element, Layer>
  * - If BatchOutput does not satisfy computation_errorable<BatchOutput>, then:
  *   - BatchOutput models `std::ranges::input_range`
- *   - Each Element of BatchOutput satisfies output<Element, Layer>
+ *   - Each element of BatchOutput satisfies output<Element, Layer>
  *
  * ### Example
  * ```cpp
@@ -319,7 +320,9 @@ concept batch_output =
      std::ranges::input_range<BatchOutput> &&
      output<std::ranges::range_value_t<BatchOutput>, Layer>);
 
+// Internal helper: Implementation of the propagate customization point object.
 struct propagate_impl {
+  // Member function overload for single input.
   template <class Layer, input<Layer> Input>
     requires layer<std::remove_cvref_t<Layer>> && requires {
       {
@@ -332,6 +335,7 @@ struct propagate_impl {
     return std::forward<Layer>(layer).propagate(std::forward<Input>(input));
   }
 
+  // Free function / hidden friend overload for single input.
   template <class Layer, input<Layer> Input>
     requires(
         layer<std::remove_cvref_t<Layer>> &&
@@ -348,6 +352,7 @@ struct propagate_impl {
     return propagate(std::forward<Layer>(layer), std::forward<Input>(input));
   }
 
+  // Member function overload for batch input.
   template <class Layer, batch_input<Layer> Input>
     requires layer<std::remove_cvref_t<Layer>> && requires {
       {
@@ -360,6 +365,7 @@ struct propagate_impl {
     return std::forward<Layer>(layer).propagate(std::forward<Input>(input));
   }
 
+  // Free function / hidden friend overload for batch input.
   template <class Layer, batch_input<Layer> Input>
     requires(
         layer<std::remove_cvref_t<Layer>> &&
