@@ -231,10 +231,34 @@ struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
 export template <class T>
 concept sequential_network = is_sequential_network<T>::value;
 
+/**
+ * @brief Represents the type of the first layer in the given sequential network
+ * type.
+ *
+ * The type alias first_layer_t<Network> extracts the type of the first layer in
+ * Network if Network models the sequential_network concept. Otherwise, the
+ * program is ill-formed.
+ *
+ * @tparam Network The type of the sequential network. This type must model the
+ * sequential_network concept.
+ * @see sequential_network for the requirements on the Network type.
+ */
 export template <class Network>
   requires sequential_network<std::remove_cvref_t<Network>>
 using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
 
+/**
+ * @brief Represents the type of the output layer in the given sequential
+ * network type.
+ *
+ * The type alias output_layer_t<Network> extracts the type of the last layer in
+ * Network if Network models the sequential_network concept. Otherwise, the
+ * program is ill-formed.
+ *
+ * @tparam Network The type of the sequential network. This type must model the
+ * sequential_network concept.
+ * @see sequential_network for the requirements on the Network type.
+ */
 export template <class Network>
   requires sequential_network<std::remove_cvref_t<Network>>
 using output_layer_t =
