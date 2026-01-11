@@ -55,7 +55,9 @@ concept layer =
     std::same_as<decltype(auto(T::output_extents)),
                  decltype(std::extents{T::output_extents})>;
 
+// Internal helper: Implementation of the build customization point object.
 struct build_impl {
+  // Member function overload.
   template <class RealType, class T, class IndexType, std::size_t... Extents>
   constexpr auto operator()(T&& builder,
                             std::extents<IndexType, Extents...> extents) const
@@ -70,6 +72,7 @@ struct build_impl {
         std::move(extents));
   }
 
+  // Free function / hidden friend overload.
   template <class RealType, class T, class IndexType, std::size_t... Extents>
   constexpr auto operator()(T&& builder,
                             std::extents<IndexType, Extents...> extents) const
@@ -86,41 +89,52 @@ struct build_impl {
     return build<RealType>(std::forward<T>(builder), std::move(extents));
   }
 };
+
 inline namespace cpo {
 /**
- * Customization point object for invoking layer builders.
+ * @brief Customization point object for building layer.
  *
- * The `build` customization point object provides a uniform interface for
- * invoking layer builders in neural network construction. It supports multiple
- * customization patterns, allowing users to define layer builders with either
- * member functions or free/hidden friend functions.
+ * The name build denotes a customization point object (CPO) used to construct a
+ * layer during neural network construction.
  *
- * **Invocation Patterns:**
- * 1. **Member function**: If the builder type `T` provides a member function
- *    template `build<RealType, Shape>()`, it will be invoked as
- *    `builder.build<RealType, Shape>()`.
- * 2. **Free or hidden friend function**: If the builder type `T` does not
- *    provide a member function but has a free function or hidden friend
- *    function template `build<RealType, Shape>(builder)`, it will be invoked
- *    via ADL (Argument Dependent Lookup).
+ * ### Call signature
+ * ```cpp
+ * template <class RealType, class T, class IndexType, std::size_t... Extents>
+ *   requires /\* see below *\/
+ * constexpr auto build(T&& builder,
+ *                      std::extents<IndexType, Extents...> extents)
+ *     noexcept(noexcept(expression)) -> layer auto;
+ * ```
+ * - RealType: A type used for computations, which corresponds to the
+ *   `real_type` of the preceding layer in the network.
+ * - extents: The shape of a single sample (excluding batch dimension). This
+ *   corresponds to the `output_extents` of the preceding layer and serves as
+ *   the input shape for the layer being built.
  *
- * The customization point object is instantiated as the inline variable `build`
- * in the inline `cpo` namespace, enabling convenient usage in network
- * construction.
+ * ### Behavior
+ * A call to build is expression-equivalent to:
+ * 1. `builder.template build<RealType>(extents)` if that expression is
+ *    valid and its result models the `layer`
+ * 2. Otherwise, `build<RealType>(builder, extents)` if that expression is valid
+ *    and its result models the `layer`, where the meaning of build is
+ *    established as if by performing argument-dependent lookup (ADL) only
+ * 3. Otherwise, the program is ill-formed.
  *
- * @tparam RealType The type used for computations (typically floating-point,
- *                  but can be others)
- * @tparam Shape A specialization of `shape` representing the input dimension
- *               for the layer to be built.
- * @tparam T The type of the layer builder object.
+ * ### Example
+ * ```cpp
+ * struct my_layer_builder {
+ *   static constexpr std::size_t output_features = 3;
  *
- * @return A layer satisfying the `layer` concept.
+ *   template <class RealType, class IndexType, std::size_t... Extents>
+ *   auto build(std::extents<IndexType, Extents...> input_shape) const {
+ *     // Logic to construct the layer using RealType and input_shape.
+ *     return my_layer<RealType, Extents...>{input_shape, output_features};
+ *   }
+ * };
+ * ```
  *
- * @note The returned layer's `input_shape_type` will typically match the
- *       provided `Shape` template parameter, and its `output_shape_type` is
- *       determined by the builder's implementation.
- *
- * @see make_network for how this CPO is used in network construction.
+ * @see layer for the requirements on the resulting layer type.
+ * @see make_network for how build is used during network construction.
  */
 export inline constexpr auto build = build_impl{};
 }  // namespace cpo
