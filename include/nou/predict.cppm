@@ -55,17 +55,21 @@ export enum class computation_error : std::uint8_t {
 };
 
 /**
- * Specifies that a type is a computation result that may contain an error.
+ * @brief Specifies that a type can represent either a valid computation result
+ * or a computation error.
  *
- * This concept identifies a type that represents the result of a neural
- * network computation which may fail with a `computation_error`. It is
- * specifically designed to detect `std::expected<T, computation_error>`
- * specializations.
+ * The concept computation_errorable<T> specifies that T is a type that can
+ * represent the result of a neural network computation which may fail with a
+ * `computation_error`.
+ *
+ * ### Syntactic requirements
+ * Let `U` be the type of the successful computation result,
+ * computation_errorable<T> is satisfied only if T is a specialization of
+ * `std::expected<U, computation_error>`.
  *
  * @tparam T The type to check
  *
- * @see computation_error for the unified error type.
- * @see predict for how computation results are composed across layers.
+ * @see computation_error for the computation error conditions.
  */
 export template <class T>
 concept computation_errorable =
