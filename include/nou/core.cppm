@@ -266,38 +266,48 @@ using output_layer_t =
                          std::remove_cvref_t<Network>>;
 
 /**
- * Constructs a neural network by composing layers or layer builders.
+ * @brief Constructs a sequential neural network.
  *
- * This function constructs a neural network from a sequence of layers or layer
- * builders. Each argument is processed in order:
- * - If the argument is a layer, it is copied or moved directly into the
- * network.
- * - If the argument is a layer builder, it is instantiated by invoking the
- * `build` customization point object with the previous layer's `real_type` and
- * `output_shape_type` (see @pre).
+ * The function template make_network constructs a sequential neural network by
+ * composing the provided layers and/or layer builders. It automatically
+ * resolves builders into concrete layers using the output properties of the
+ * preceding layer.
  *
- * @tparam First The type of the first layer.
- * @tparam Second The type of the second layer or layer builder.
- * @tparam Rest The types of the remaining layers or layer builders.
+ * ### Example
+ * ```cpp
+ * struct layer1 { ... }; // models layer
+ * struct layer2 { ... }; // models layer
+ * struct layer3_builder {
+ *   template <class RealType, class IndexType, std::size_t... Extents>
+ *   auto build(std::extents<IndexType, Extents...> input_shape) const {
+ *     return layer3<RealType, Extents...>{input_shape, /\* ... \*\/};
+ *   }
+ * };
+ * // Construct a network: the third layer is built using properties from the
+ * // second layer.
+ * constexpr nou::sequential_network auto network =
+ *     nou::make_network(layer1{}, layer2{}, layer3_builder{});
+ * ```
  *
- * @param first The first layer in the network.
- * @param second The layer or layer builder for the second layer in the network.
- * @param rest The layers or layer builders for the remaining layers in the
- * network.
+ * @tparam First The type of the first layer. This type must model the layer
+ * concept.
+ * @tparam Second The type of the second layer or layer builder. Let $L_1$ be
+ * First, Second must satisfy one of:
+ * - Second models the layer concept where Second::input_extents ==
+ *   $L_1$::output_extents
+ * - Second is a builder where `build<$L_1$::real_type>(second,
+ *   $L_1$::output_extents)` results in a layer $L_2$ with `L_2::input_extents
+ *   == $L_1$::output_extents`.
+ * @tparam Rest The types of additional layers or builders. Each element $E_i$
+ * must satisfy the same connectivity requirements with respect to its preceding
+ * layer $L_{i-1}$.
  *
- * @return A network object satisfying the `sequential_network` concept.
- *
- * @pre For each adjacent pair of arguments `(Prev, Next)`:
- * - `Prev` must satisfy the `layer` concept
- * - `Next` must satisfy one of the following:
- *   - **`Next` satisfies the `layer` concept**:
- *     `Prev::output_shape_type` must match `Next::input_shape_type`.
- *   - **`Next` is a layer builder**:
- *     `build` customization point object must be invocable and return a type
- *     satisfying the `layer` concept. The resulting layer becomes the next
- *     `Prev` in the sequence.
- *
- * @see build for details on how layer builders are invoked.
+ * @param first The first layer of the network.
+ * @param second The second layer or layer builder.
+ * @param rest Additional layers or layer builders to be appended.
+ * @return A sequential neural network that models the sequential_network
+ * concept.
+ * @note All arguments are taken by value and moved into the resulting network
  */
 export template <layer First, class Second, class... Rest>
   requires(is_connectable<First, Second, Rest...>::value)
