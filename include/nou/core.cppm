@@ -239,6 +239,12 @@ concept sequential_network = is_sequential_network<T>::value;
  * Network if Network models the sequential_network concept. Otherwise, the
  * program is ill-formed.
  *
+ * ### Example
+ * ```cpp
+ * using network = std::tuple<layer1, layer2, layer3>;
+ * static_assert(std::same_as<nou::first_layer_t<network>, layer1>);
+ * ```
+ *
  * @tparam Network The type of the sequential network. This type must model the
  * sequential_network concept.
  * @see sequential_network for the requirements on the Network type.
@@ -254,6 +260,12 @@ using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
  * The type alias output_layer_t<Network> extracts the type of the last layer in
  * Network if Network models the sequential_network concept. Otherwise, the
  * program is ill-formed.
+ *
+ * ### Example
+ * ```cpp
+ * using network = std::tuple<layer1, layer2, layer3>;
+ * static_assert(std::same_as<nou::output_layer_t<network>, layer3>);
+ * ```
  *
  * @tparam Network The type of the sequential network. This type must model the
  * sequential_network concept.
