@@ -224,19 +224,37 @@ concept batch_input =
  * @brief Specifies that a type is compatible as layer output.
  *
  * The concept output<Output, Layer> specifies that Output is a valid output
- * type from the given Layer. The output must match the layer's expected
- * real_type and output_extents shape.
+ * type from the given Layer. The output may or may not satisfy
+ * computation_errorable<Output> depending on layer`s error handling behavior.
  *
- * This concept handles both error-free and fallible outputs:
- * - For plain types: validates Output directly against output_extents
- * - For std::expected: validates the value_type against output_extents
+ * ### Semantic requirements
+ * output<Output, Layer> is modeled only if Layer models the layer concept and
+ * either of the following holds:
+ * - If Output satisfies computation_errorable<Output>, `Output::value_type`
+ *   matches the layer's real_type and output_extents shape (see `input` concept
+ *   for shape matching rules)
+ * - If Output does not satisfy computation_errorable<Output>, Output matches
+ *   the layer's real_type and output_extents shape (see `input` concept for
+ *   shape matching rules)
  *
- * @tparam Output The output type to validate (may be T or std::expected<T, E>)
- * @tparam Layer The layer type (must satisfy `layer` concept)
+ * ### Example
+ * ```cpp
+ * struct my_layer {
+ *   using real_type = float;
+ *   static constexpr std::extents<std::size_t, 3> output_extents{};
+ *   // ...
+ * };
+ * static_assert(nou::output<std::array<float, 3>, my_layer>); // fixed extent 3
+ * static_assert(nou::output<std::vector<float>, my_layer>);   // dynamic extent
+ * static_assert(
+ *     nou::output<std::expected<std::array<float, 3>, nou::computation_error>,
+ *     my_layer>); // errorable output
+ * ```
+ *
+ * @tparam Output The output type to validate
+ * @tparam Layer The layer type that models the `layer` concept
  *
  * @see computation_errorable for error-handling output types
- * @see is_extents_match for the underlying validation logic
- * @see propagate for how output compatibility is enforced
  */
 export template <class Output, class Layer>
 concept output =
