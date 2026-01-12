@@ -14,15 +14,15 @@ namespace nou {
 /**
  * @brief Specifies that a type qualifies as a neural network layer.
  *
- * The concept layer<T> specifies that T is the type of a layer that can be used
- * to construct a neural network.
+ * The concept `layer<T>` specifies that `T` is the type of a layer that can be
+ * used to construct a neural network.
  *
  * ### Semantics requirements
- * layer<T> is modeled only if T provides the following members:
+ * `layer<T>` is modeled only if `T` provides the following members:
  * - `T::real_type`: A member type used for computations within the layer
  * - `T::input_extents` and `T::output_extents`: Static data members whose types
- *   are specializations of `std::extents`. **They describe the shape of a
- *   single sample (excluding batch dimension)**.
+ *   are specializations of `std::extents`. They describe the shape of a
+ *   single sample (excluding batch dimension)
  *
  * ### Example
  * ```cpp
@@ -96,8 +96,8 @@ inline namespace cpo {
 /**
  * @brief Customization point object for building layer.
  *
- * The name build denotes a customization point object (CPO) used to construct a
- * layer during neural network construction.
+ * The name `build` denotes a customization point object (CPO) used to construct
+ * a layer during neural network construction.
  *
  * ### Call signature
  * ```cpp
@@ -107,18 +107,19 @@ inline namespace cpo {
  *                      std::extents<IndexType, Extents...> extents)
  *     noexcept(noexcept(expression)) -> layer auto;
  * ```
- * - RealType: A type used for computations, which corresponds to the
+ * - `RealType`: A type used for computations, which corresponds to the
  *   `real_type` of the preceding layer in the network.
- * - extents: The shape of a single sample (excluding batch dimension). This
+ * - `extents`: The shape of a single sample (excluding batch dimension). This
  *   corresponds to the `output_extents` of the preceding layer and serves as
  *   the input shape for the layer being built.
  *
  * ### Behavior
- * A call to build is expression-equivalent to:
- * 1. `builder.template build<RealType>(extents)` if that expression is
- *    valid and its result models the `layer`
+ * The expression `build<RealType>(builder, extents)` is expression-equivalent
+ * to:
+ * 1. `builder.template build<RealType>(extents)` if that expression is valid
+ *    and its result models the `layer` concept
  * 2. Otherwise, `build<RealType>(builder, extents)` (via ADL) if that
- *    expression is valid and its result models the `layer`
+ *    expression is valid and its result models the `layer` concept
  * 3. Otherwise, the program is ill-formed.
  *
  * ### Example
@@ -190,18 +191,18 @@ struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
 /**
  * @brief Specifies that a type qualifies as a sequential neural network.
  *
- * The concept sequential_network<T> specifies that T is the type of a
+ * The concept `sequential_network<T>` specifies that T is the type of a
  * sequential neural network composed of two or more layers where each layer's
  * output shape matches the subsequent layer's input shape.
  *
  * ### Semantic requirements
- * sequential_network<T> is modeled only if:
- * - T is a specialization of `std::tuple` where each element models the layer
- *   concept
- * - T contains two or more layers
+ * `sequential_network<T>` is modeled only if:
+ * - `T` is a specialization of `std::tuple` where each element models the
+ *   `layer` concept
+ * - `T` contains two or more layers
  * - For each adjacent pair of layers ($L_i$, $L_{i+1}$) in `T`:
  *   - $L_i::output\_extents == L_{i+1}::input\_extents$ (The output shape of a
- *     layer must exactly match the input shape of the next layer).
+ *     layer must exactly match the input shape of the next layer)
  *
  * ### Example
  * ```cpp
@@ -234,9 +235,9 @@ concept sequential_network = is_sequential_network<T>::value;
  * @brief Represents the type of the first layer in the given sequential network
  * type.
  *
- * The type alias first_layer_t<Network> extracts the type of the first layer in
- * Network if Network models the sequential_network concept. Otherwise, the
- * program is ill-formed.
+ * The type alias `first_layer_t<Network>` extracts the type of the first layer
+ * in `Network` if `Network` models the `sequential_network` concept. Otherwise,
+ * the program is ill-formed.
  *
  * ### Example
  * ```cpp
@@ -245,7 +246,7 @@ concept sequential_network = is_sequential_network<T>::value;
  * ```
  *
  * @tparam Network The type of the sequential network. This type must model the
- * sequential_network concept.
+ * `sequential_network` concept.
  * @see sequential_network for the requirements on the Network type.
  */
 export template <class Network>
@@ -256,9 +257,9 @@ using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
  * @brief Represents the type of the last layer in the given sequential
  * network type.
  *
- * The type alias last_layer_t<Network> extracts the type of the last layer in
- * Network if Network models the sequential_network concept. Otherwise, the
- * program is ill-formed.
+ * The type alias `last_layer_t<Network>` extracts the type of the last layer in
+ * `Network` if `Network` models the `sequential_network` concept. Otherwise,
+ * the program is ill-formed.
  *
  * ### Example
  * ```cpp
@@ -267,7 +268,7 @@ using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
  * ```
  *
  * @tparam Network The type of the sequential network. This type must model the
- * sequential_network concept.
+ * `sequential_network` concept.
  * @see sequential_network for the requirements on the Network type.
  */
 export template <class Network>
@@ -279,8 +280,8 @@ using last_layer_t =
 /**
  * @brief Constructs a sequential neural network.
  *
- * The function template make_network constructs a sequential neural network by
- * composing the provided layers and/or layer builders. It automatically
+ * The function template `make_network` constructs a sequential neural network
+ * by composing the provided layers and/or layer builders. It automatically
  * resolves builders into concrete layers using the output properties of the
  * preceding layer.
  *
@@ -300,14 +301,14 @@ using last_layer_t =
  *     nou::make_network(layer1{}, layer2{}, layer3_builder{});
  * ```
  *
- * @tparam First The type of the first layer. This type must model the layer
+ * @tparam First The type of the first layer. This type must model the `layer`
  * concept.
  * @tparam Second The type of the second layer or layer builder. Let $L_1$ be
- * First, Second must satisfy one of:
- * - Second models the layer concept where Second::input_extents ==
- *   $L_1$::output_extents
- * - Second is a builder where `build<$L_1$::real_type>(second,
- *   $L_1$::output_extents)` results in a layer $L_2$ with `L_2::input_extents
+ * `First`, `Second` must satisfy one of:
+ * - `Second` models the `layer` concept where `Second::input_extents ==
+ *   $L_1$::output_extents`
+ * - `Second` is a builder where `build<$L_1$::real_type>(second,
+ *   $L_1$::output_extents)` results in a `layer` $L_2$ with `L_2::input_extents
  *   == $L_1$::output_extents`.
  * @tparam Rest The types of additional layers or builders. Each element $E_i$
  * must satisfy the same connectivity requirements with respect to its preceding
@@ -316,7 +317,7 @@ using last_layer_t =
  * @param first The first layer of the network.
  * @param second The second layer or layer builder.
  * @param rest Additional layers or layer builders to be appended.
- * @return A sequential neural network that models the sequential_network
+ * @return A sequential neural network that models the `sequential_network`
  * concept.
  * @note All arguments are taken by value and moved into the resulting network
  */

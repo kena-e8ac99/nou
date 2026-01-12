@@ -20,17 +20,15 @@ namespace nou {
 /**
  * @brief Unified error type for neural network computation failures.
  *
- * This enumeration represents error conditions that can occur during neural
- * network computations, including layer propagation, training, and evaluation.
- * The enum is designed to grow incrementally as new computational operations
- * are implemented and their error cases are discovered.
+ * The enumeration `computation_error` represents error conditions that can
+ * occur during neural network computations, including layer propagation,
+ * training, and evaluation. The enum is designed to grow incrementally as new
+ * computational operations are implemented and their error cases are
+ * discovered.
  *
  * The underlying type is `std::uint8_t` (1 byte) to minimize memory overhead
  * in `std::expected` and cache utilization. This provides 256 possible error
  * values, which is more than sufficient for neural network computation errors.
- *
- * @see predict for how error types are composed across network layers.
- * @see propagate for the underlying computation that may produce errors.
  */
 export enum class computation_error : std::uint8_t {
   /**
@@ -55,17 +53,17 @@ export enum class computation_error : std::uint8_t {
 };
 
 /**
- * @brief Specifies that a type can represent either a valid computation result
+ * @brief Specifies that a type represents either a valid computation result
  * or a computation error.
  *
- * The concept computation_errorable<T> specifies that T is a type that can
- * represent the result of a neural network computation which may fail with a
+ * The concept `computation_errorable<T>` specifies that `T` is a type that
+ * represents the result of a neural network computation which may fail with a
  * `computation_error`.
  *
  * ### Syntactic requirements
  * Let `U` be the type of the successful computation result.
- * computation_errorable<T> is satisfied only if T is exactly a specialization
- * of `std::expected<U, computation_error>`.
+ * `computation_errorable<T>` is satisfied only if `T` is exactly a
+ * specialization of `std::expected<U, computation_error>`.
  *
  * @tparam T The type to check
  *
@@ -133,30 +131,30 @@ struct is_extents_match<T, RealType,
           std::extents<IndexType, Extents...>> {};
 
 /**
- * @brief Specifies that a type is compatible as layer input.
+ * @brief Specifies that a type is compatible as layer single input.
  *
- * The concept input<Input, Layer> specifies that Input is a valid input type
- * for the given Layer. The input must match the layer's real_type and
- * input_extents shape.
+ * The concept `input<Input, Layer>` specifies that `Input` is a valid input
+ * type for the given `Layer`. The input must match the layer's `real_type` and
+ * `input_extents` shape.
  *
  * ### Semantic requirements
- * input<Input, Layer> is modeled only if Layer models the layer concept and
+ * `input<Input, Layer>` is modeled only if `Layer` models the `layer` and
  * either of the following holds:
  * - If `Layer::input_extents` is rank 1 with extent 1:
- *   - Input is same as `Layer::real_type`
+ *   - `Input` is same as `Layer::real_type`
  * - If `Layer::input_extents` is rank 1 with extent $N \ge 1$:
- *   - Input models `std::ranges::input_range`
+ *   - `Input` models `std::ranges::input_range`
  *   - `std::ranges::range_value_t<Input>` is the same as `Layer::real_type`
- *   - If Input is a contiguous range (or more specifically, `std::span` is
- *     constructible from Input) and its extent is known at compile-time (e.g.,
- *     `std::array`), its extent is N
+ *   - If `Input` is a contiguous range (or more specifically, `std::span` is
+ *     constructible from `Input`) and its extent is known at compile-time
+ *     (e.g., `std::array`), its extent is `N`
  * - If `Layer::input_extents` is rank > 1 and outermost extent is $M \ge 1$:
- *   - Input models `std::ranges::input_range`
- *   - If Input is a contiguous range (or more specifically, `std::span` is
- *     constructible from Input) and its extent is known at compile-time (e.g.,
- *     `std::array`), its extent is M
- *   - The value type of Input recursively satisfy the same rules with respect
- *     to `Layer::input_extents` excluding the outermost extent
+ *   - `Input` models `std::ranges::input_range`
+ *   - If `Input` is a contiguous range (or more specifically, `std::span` is
+ *     constructible from `Input`) and its extent is known at compile-time
+ *     (e.g., `std::array`), its extent is `M`
+ *   - The value type of `Input` recursively satisfies the same rules with
+ *     respect to `Layer::input_extents` excluding the outermost extent
  *
  * ### Example
  * ```cpp
@@ -169,8 +167,10 @@ struct is_extents_match<T, RealType,
  * static_assert(nou::input<std::vector<float>, my_layer>);   // dynamic extent
  * ```
  *
- * @tparam Input The input type to validate.
- * @tparam Layer The layer type that models the `layer` concept.
+ * @tparam Input The input type to be checked.
+ * @tparam Layer The layer type to be checked.
+ *
+ * @see layer for the requirements on the layer type.
  */
 export template <class Input, class Layer>
 concept input =
@@ -181,19 +181,20 @@ concept input =
 /**
  * @brief Specifies that a type is compatible as batch layer input.
  *
- * The concept batch_input<BatchInput, Layer> specifies that BatchInput is a
- * valid batch input for the given Layer. A batch input is a range of individual
- * inputs, where each element satisfies the `input` concept for the layer.
- * This concept supports both fixed-size and dynamic-size batch inputs.
+ * The concept `batch_input<BatchInput, Layer>` specifies that `BatchInput` is a
+ * valid batch input for the given `Layer`. A batch input is a range of
+ * individual inputs, where each element models `input` for the layer. This
+ * concept supports both fixed-size and dynamic-size batch inputs.
  *
  * ### Semantic requirements
- * batch_input<BatchInput, Layer> is modeled only if Layer models the layer
- * concept and the following holds:
- * - Disambiguation: BatchInput and Layer do not satisfy `input<BatchInput,
+ * `batch_input<BatchInput, Layer>` is modeled only if `Layer` models `layer`
+ * and the following holds:
+ * - Disambiguation: `BatchInput` and `Layer` do not satisfy `input<BatchInput,
  *   Layer>` (if a type can satisfy both a single input and batch input, it is
  *   treated as a single input)
- * - BatchInput models `std::ranges::input_range`
- * - Each element in the range must satisfy input<Element, Layer>
+ * - `BatchInput` models `std::ranges::input_range`
+ * - Let `E` be `std::ranges::range_value_t<std::remove_cvref_t<BatchInput>>`,
+ *   `input<E, Layer>` is modeled
  *
  * ### Example
  * ```cpp
@@ -210,9 +211,10 @@ concept input =
  *    nou::batch_input<std::vector<std::array<float, 3>>, my_layer>);
  * ```
  *
- * @tparam BatchInput The batch input type to validate
- * @tparam Layer The layer type that models the layer concept
+ * @tparam BatchInput The batch input type to be checked.
+ * @tparam Layer The layer type to be checked.
  *
+ * @see layer for the requirements on the layer type
  * @see input for individual input requirements
  */
 export template <class BatchInput, class Layer>
@@ -221,21 +223,22 @@ concept batch_input =
     input<std::ranges::range_value_t<std::remove_cvref_t<BatchInput>>, Layer>;
 
 /**
- * @brief Specifies that a type is compatible as layer output.
+ * @brief Specifies that a type is compatible as layer single output.
  *
- * The concept output<Output, Layer> specifies that Output is a valid output
- * type from the given Layer. The output may or may not satisfy
- * computation_errorable<Output> depending on layer`s error handling behavior.
+ * The concept `output<Output, Layer>` specifies that `Output` is a valid output
+ * type from the given `Layer`. The output may or may not satisfy
+ * `computation_errorable<Output>` depending on `Layer`'s error handling
+ * behavior.
  *
  * ### Semantic requirements
- * output<Output, Layer> is modeled only if Layer models the layer concept and
- * either of the following holds:
- * - If Output satisfies computation_errorable<Output>, `Output::value_type`
- *   matches the layer's real_type and output_extents shape
- * - If Output does not satisfy computation_errorable<Output>, Output itself
- *   matches the layer's real_type and output_extents shape
+ * `output<Output, Layer>` is modeled only if `Layer` models `layer` and either
+ * of the following holds:
+ * - If `Output` satisfies `computation_errorable<Output>`, `Output::value_type`
+ *   matches the `Layer`'s `real_type` and `output_extents` shape
+ * - If `Output` does not satisfy `computation_errorable<Output>`, `Output`
+ *   itself matches the `Layer`'s `real_type` and `output_extents` shape
  *
- * (See `input` concept for detailed shape matching rules).
+ * (See `input` for detailed shape matching rules).
  *
  * ### Example
  * ```cpp
@@ -251,8 +254,8 @@ concept batch_input =
  *     my_layer>); // errorable output
  * ```
  *
- * @tparam Output The output type to validate
- * @tparam Layer The layer type that models the `layer` concept
+ * @tparam Output The output type to be checked.
+ * @tparam Layer The layer type to be checked.
  *
  * @see computation_errorable for error-handling output types
  * @see input for shape matching rules
@@ -268,21 +271,23 @@ concept output =
 /**
  * @brief Specifies that a type is compatible as batch layer output.
  *
- * The concept batch_output<BatchOutput, Layer> specifies that BatchOutput is a
- * valid batch output from the given Layer. The batch output may or may not
- * satisfy computation_errorable<BatchOutput> depending on layer`s error
+ * The concept `batch_output<BatchOutput, Layer>` specifies that `BatchOutput`
+ * is a valid batch output from the given `Layer`. The batch output may or may
+ * not satisfy `computation_errorable<BatchOutput>` depending on `Layer`'s error
  * handling behavior.
  *
  * ### Semantic requirements
- * batch_output<BatchOutput, Layer> is modeled only if Layer models the layer
- * concept and the following holds:
- * - If BatchOutput satisfies computation_errorable<BatchOutput>, let
- *   `BatchOutput::value_type` be R, then:
- *   - R models `std::ranges::input_range`
- *   - Each element of R satisfies output<Element, Layer>
- * - If BatchOutput does not satisfy computation_errorable<BatchOutput>, then:
- *   - BatchOutput models `std::ranges::input_range`
- *   - Each element of BatchOutput satisfies output<Element, Layer>
+ * `batch_output<BatchOutput, Layer>` is modeled only if `Layer` models `layer`
+ * and the following holds:
+ * - If `BatchOutput` satisfies `computation_errorable<BatchOutput>`, let
+ *   `BatchOutput::value_type` be `R`, then:
+ *   - `R` models `std::ranges::input_range`
+ *   - Let `E` be `std::ranges::range_value_t<R>`, `output<E, Layer>` is modeled
+ * - If `BatchOutput` does not satisfy `computation_errorable<BatchOutput>`,
+ *   then:
+ *   - `BatchOutput` models `std::ranges::input_range`
+ *   - Let `E` be `std::ranges::range_value_t<BatchOutput>`, `output<E, Layer>`
+ *     is modeled
  *
  * ### Example
  * ```cpp
@@ -303,8 +308,8 @@ concept output =
  *    nou::computation_error>, my_layer>);
  * ```
  *
- * @tparam BatchOutput The batch output type to validate
- * @tparam Layer The layer type that models the layer concept
+ * @tparam BatchOutput The batch output type to be checked.
+ * @tparam Layer The layer type to be checked.
  *
  * @see output for individual output requirements
  * @see batch_input for the corresponding input concept
@@ -403,7 +408,7 @@ inline namespace cpo {
  *
  * ### Constraints
  * A call to `propagate` is valid only if:
- * - The type (decayed `Layer`) models the `layer` concept
+ * - The type (decayed `Layer`) models `layer`
  * - The type `Input` models either the `input<Layer>` or `batch_input<Layer>`
  *
  * ### Behavior
@@ -548,13 +553,13 @@ struct predict_step<I, Network, Input> {
  *     nou::predict(network, std::array<float, 3>{1.0f, 2.0f, 3.0f});
  * ```
  *
- * @tparam Network The type of the sequential network (models
- * `sequential_network`).
- * @tparam Input The type of the single input (models
- * `input<first_layer_t<Network>>`).
+ * @tparam Network The type of the sequential network. This type must model
+ * `sequential_network`.
+ * @tparam Input The type of the single input. This type must model
+ * `input<first_layer_t<Network>>`.
  * @param network The sequential network instance.
  * @param input The single input to propagate through the network.
- * @return The final output from the last layer. The return type models
+ * @return The final output from the last layer. The return type must model
  * `output<last_layer_t<Network>>`.
  *
  * @see sequential_network for the requirements on the Network type.
@@ -595,14 +600,14 @@ constexpr auto predict(Network&& network, Input&& input) noexcept(
  *         network, std::vector<std::array<float, 3>>{{1.0f, ...}, ...});
  * ```
  *
- * @tparam Network The type of the sequential network (models
- * `sequential_network`).
- * @tparam BatchInput The type of the batch input (models
- * `batch_input<first_layer_t<Network>>`).
+ * @tparam Network The type of the sequential network. This type must model
+ * `sequential_network`.
+ * @tparam BatchInput The type of the batch input. This type must model
+ * `batch_input<first_layer_t<Network>>`.
  * @param network The sequential network instance.
  * @param input The batch input to propagate.
- * @return The final batch output from the last layer. The return type models
- * `batch_output<last_layer_t<Network>>`.
+ * @return The final batch output from the last layer. The return type must
+ * model `batch_output<last_layer_t<Network>>`.
  *
  * @see sequential_network for the requirements on the Network type.
  * @see batch_input for the requirements on the Input type.
