@@ -494,36 +494,38 @@ constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
 }
 
 /**
- * Predicts output by propagating input through a neural network.
+ * @brief Predicts output from single input using the given sequential network.
  *
- * This function propagates input data through all layers of the network,
- * applying each layer's transformation in sequence. The function automatically
- * handles error propagation across layers:
- * - If all layers return values directly and the output layer returns type `T`,
- *   the result is of type `T`.
- * - If any layer returns `std::expected<T, computation_error>`, the result is
- *   `std::expected<T, computation_error>`
+ * This function performs forward propagation of a single input through the
+ * entire sequential network, returning the final output.
  *
- * **Error Handling:**
- * - Errors are short-circuited: if a layer returns an error, propagation to
- *   subsequent layers is skipped
- * - The first encountered error is propagated to the caller
+ * ### Error handling
+ * If any layer in the network produces an errorable output (satisfying
+ * `computation_errorable`), the output of `predict` will also be
+ * errorable (wrapped in `std::expected`). If an intermediate layer returns a
+ * `computation_error`, the process is short-circuited: the error is returned
+ * immediately, and subsequent layers are not executed.
  *
- * @tparam Network The network type (must satisfy `sequential_network` concept)
- * @tparam Input The input type (must be compatible with first layer's input)
+ * ### Example
+ * ```cpp
+ * // network models nou::sequential_network
+ * constexpr nou::output<last_layer_t<decltype(network)>> auto result =
+ *     nou::predict(network, std::array<float, 3>{1.0f, 2.0f, 3.0f});
+ * ```
  *
- * @param network The neural network to use for prediction
- * @param input The input data to propagate through the network
+ * @tparam Network The type of the sequential network (models
+ * `sequential_network`).
+ * @tparam Input The type of the single input (models
+ * `input<first_layer_t<Network>>`).
+ * @param network The sequential network instance.
+ * @param input The single input to propagate through the network.
+ * @return The final output from the last layer. The return type models
+ * `output<last_layer_t<Network>>`.
  *
- * @return Either `T` (if all layers are error-free) or
- *         `std::expected<T, computation_error>` (if any layer may fail),
- *         where `T` is the output type of the final layer
- *
- * @note This function is fully `constexpr` and can be evaluated at
- *       compile-time if all layer operations are `constexpr`.
- *
- * @see computation_error for possible error conditions
- * @see propagate for the underlying layer computation
+ * @see sequential_network for the requirements on the Network type.
+ * @see input for the requirements on the Input type.
+ * @see output for the requirements on the return type.
+ * @see propagate for the underlying layer propagation mechanism.
  */
 export template <class Network, input<first_layer_t<Network>> Input>
   requires sequential_network<std::remove_cvref_t<Network>> && requires {
@@ -532,21 +534,56 @@ export template <class Network, input<first_layer_t<Network>> Input>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto predict(Network&& network, Input&& input) noexcept(noexcept(
     predict_impl(std::forward<Network>(network), std::forward<Input>(input))))
-    -> output<output_layer_t<Network>> auto {
+    -> output<last_layer_t<Network>> auto {
   return predict_impl(std::forward<Network>(network),
                       std::forward<Input>(input));
 }
 
-export template <class Network, batch_input<first_layer_t<Network>> Input>
+/**
+ * @brief Predicts batch output from batch input using the given sequential
+ * network.
+ *
+ * This function performs forward propagation of multiple samples (batch input)
+ * through the entire sequential network, returning the final batch output.
+ *
+ * ### Error handling
+ * Follows the same short-circuit logic as the single input version. If any
+ * layer produces an error for the batch, the computation stops immediately.
+ *
+ * ### Example
+ * ```cpp
+ * // Batch input prediction (fixed or dynamic size)
+ * constexpr nou::batch_output<last_layer_t<decltype(network)>> auto result =
+ *     nou::predict(
+ *         network, std::vector<std::array<float, 3>>{{1.0f, ...}, ...});
+ * ```
+ *
+ * @tparam Network The type of the sequential network (models
+ * `sequential_network`).
+ * @tparam BatchInput The type of the batch input (models
+ * `batch_input<first_layer_t<Network>>`).
+ * @param network The sequential network instance.
+ * @param input The batch input to propagate.
+ * @return The final batch output from the last layer. The return type models
+ * `batch_output<last_layer_t<Network>>`.
+ *
+ * @see sequential_network for the requirements on the Network type.
+ * @see batch_input for the requirements on the Input type.
+ * @see batch_output for the requirements on the return type.
+ * @see propagate for the underlying layer propagation mechanism.
+ *
+ */
+export template <class Network, batch_input<first_layer_t<Network>> BatchInput>
   requires sequential_network<std::remove_cvref_t<Network>> && requires {
-    predict_impl(std::declval<Network>(), std::declval<Input>());
+    predict_impl(std::declval<Network>(), std::declval<BatchInput>());
   }
 // NOLINTNEXTLINE(misc-use-internal-linkage)
-constexpr auto predict(Network&& network, Input&& input) noexcept(noexcept(
-    predict_impl(std::forward<Network>(network), std::forward<Input>(input))))
-    -> batch_output<output_layer_t<Network>> auto {
+constexpr auto predict(Network&& network, BatchInput&& input) noexcept(
+    noexcept(predict_impl(std::forward<Network>(network),
+                          std::forward<BatchInput>(input))))
+    -> batch_output<last_layer_t<Network>> auto {
   return predict_impl(std::forward<Network>(network),
-                      std::forward<Input>(input));
+                      std::forward<BatchInput>(input));
 }
 
 }  // namespace nou
