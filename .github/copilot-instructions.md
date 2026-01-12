@@ -140,7 +140,7 @@ struct MyBuilder {
 
 ### CI/CD
 
-- **Linux CI** (.github/workflows/linux.yml): Tests g++-14 and clang++-19
+- **Linux CI** (.github/workflows/linux.yml): Tests clang++-19
 - **Linting**: clang++-19 job runs clang-tidy-19
 
 ## Critical Developer Knowledge

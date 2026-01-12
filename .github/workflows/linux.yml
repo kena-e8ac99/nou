@@ -13,7 +13,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cxx: [g++-14, clang++-19]
+        cxx: [clang++-19]
+        # Using g++-14 currently causes compilation errors due to lack of `mdspan` support.
+        # cxx: [g++-14, clang++-19] 
     steps:
       - uses: actions/checkout@v6
       - name: Install g++-14
