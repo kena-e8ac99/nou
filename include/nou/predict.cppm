@@ -459,39 +459,62 @@ inline namespace cpo {
 export inline constexpr auto propagate = propagate_impl{};
 }  // namespace cpo
 
-// Internal helper: Recursive implementation of predict.
-template <std::size_t I = 0, class Network, class Input>
+// Internal helper: Recursive predict implementation.
+template <std::size_t, class...>
+struct predict_step;
+
+template <std::size_t I, class Network, class Input>
+  requires(I == std::tuple_size_v<std::remove_cvref_t<Network>>)
+struct predict_step<I, Network, Input> {
+  static constexpr bool is_noexcept = true;
+};
+
+template <std::size_t I, class Network, class Input>
   requires(I < std::tuple_size_v<std::remove_cvref_t<Network>>) &&
-          sequential_network<std::remove_cvref_t<Network>> &&
           std::invocable<decltype(propagate),
                          std::tuple_element_t<I, std::remove_cvref_t<Network>>,
                          Input>
-// NOLINTNEXTLINE(misc-use-internal-linkage)
-constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
-  auto intermediate =
-      propagate(std::get<I>(network), std::forward<Input>(input));
+struct predict_step<I, Network, Input> {
+  using current_layer = std::tuple_element_t<I, std::remove_cvref_t<Network>>;
+  using p_result = decltype(propagate(std::declval<current_layer&>(),
+                                      std::declval<Input>()));
+  static constexpr bool is_last =
+      (I + 1 == std::tuple_size_v<std::remove_cvref_t<Network>>);
+  using next_input_type = std::conditional_t<
+      is_last, void,
+      std::conditional_t<computation_errorable<p_result>,
+                         typename p_result::value_type, p_result>>;
+  static constexpr bool is_noexcept =
+      noexcept(
+          propagate(std::declval<current_layer&>(), std::declval<Input>())) &&
+      (is_last || predict_step<I + 1, Network, next_input_type>::is_noexcept);
 
-  if constexpr (I + 1 == std::tuple_size_v<std::remove_cvref_t<Network>>) {
-    return intermediate;
-  } else if constexpr (computation_errorable<decltype(intermediate)>) {
-    using next_layer_output_type = decltype(predict_impl<I + 1>(
-        std::forward<Network>(network),
-        std::declval<typename decltype(intermediate)::value_type>()));
-    using result_type = std::expected<
-        std::conditional_t<computation_errorable<next_layer_output_type>,
-                           typename next_layer_output_type::value_type,
-                           next_layer_output_type>,
-        computation_error>;
-    if (intermediate.has_value()) {
-      return result_type{predict_impl<I + 1>(std::forward<Network>(network),
-                                             std::move(intermediate).value())};
+  static constexpr auto call(Network network, Input input) noexcept(is_noexcept)
+      -> auto {
+    auto intermediate =
+        propagate(std::get<I>(network), std::forward<Input>(input));
+    if constexpr (is_last) {
+      return intermediate;
+    } else if constexpr (computation_errorable<decltype(intermediate)>) {
+      using next_step = predict_step<I + 1, Network, next_input_type>;
+      using next_output_type = decltype(next_step::call(
+          std::declval<Network>(), std::declval<next_input_type>()));
+      using result_type = std::expected<
+          std::conditional_t<computation_errorable<next_output_type>,
+                             typename next_output_type::value_type,
+                             next_output_type>,
+          computation_error>;
+      if (intermediate.has_value()) {
+        return result_type{next_step::call(std::forward<Network>(network),
+                                           std::move(intermediate).value())};
+      }
+      return result_type{std::unexpect, std::move(intermediate).error()};
+    } else {
+      return predict_step<I + 1, Network, decltype(intermediate)>::call(
+          std::forward<Network>(network), std::move(intermediate));
     }
-    return result_type{std::unexpect, std::move(intermediate).error()};
-  } else {
-    return predict_impl<I + 1>(std::forward<Network>(network),
-                               std::move(intermediate));
   }
-}
+};
 
 /**
  * @brief Predicts output from single input using the given sequential network.
@@ -529,14 +552,15 @@ constexpr auto predict_impl(Network&& network, Input&& input) -> auto {
  */
 export template <class Network, input<first_layer_t<Network>> Input>
   requires sequential_network<std::remove_cvref_t<Network>> && requires {
-    predict_impl(std::declval<Network>(), std::declval<Input>());
+    predict_step<0, Network, Input>::call(std::declval<Network>(),
+                                          std::declval<Input>());
   }
 // NOLINTNEXTLINE(misc-use-internal-linkage)
-constexpr auto predict(Network&& network, Input&& input) noexcept(noexcept(
-    predict_impl(std::forward<Network>(network), std::forward<Input>(input))))
+constexpr auto predict(Network&& network, Input&& input) noexcept(
+    predict_step<0, Network, Input>::is_noexcept)
     -> output<last_layer_t<Network>> auto {
-  return predict_impl(std::forward<Network>(network),
-                      std::forward<Input>(input));
+  return predict_step<0, Network, Input>::call(std::forward<Network>(network),
+                                               std::forward<Input>(input));
 }
 
 /**
@@ -575,15 +599,15 @@ constexpr auto predict(Network&& network, Input&& input) noexcept(noexcept(
  */
 export template <class Network, batch_input<first_layer_t<Network>> BatchInput>
   requires sequential_network<std::remove_cvref_t<Network>> && requires {
-    predict_impl(std::declval<Network>(), std::declval<BatchInput>());
+    predict_step<0, Network, BatchInput>::call(std::declval<Network>(),
+                                               std::declval<BatchInput>());
   }
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto predict(Network&& network, BatchInput&& input) noexcept(
-    noexcept(predict_impl(std::forward<Network>(network),
-                          std::forward<BatchInput>(input))))
+    predict_step<0, Network, BatchInput>::is_noexcept)
     -> batch_output<last_layer_t<Network>> auto {
-  return predict_impl(std::forward<Network>(network),
-                      std::forward<BatchInput>(input));
+  return predict_step<0, Network, BatchInput>::call(
+      std::forward<Network>(network), std::forward<BatchInput>(input));
 }
 
 }  // namespace nou
