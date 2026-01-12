@@ -117,9 +117,8 @@ inline namespace cpo {
  * A call to build is expression-equivalent to:
  * 1. `builder.template build<RealType>(extents)` if that expression is
  *    valid and its result models the `layer`
- * 2. Otherwise, `build<RealType>(builder, extents)` if that expression is valid
- *    and its result models the `layer`, where the meaning of build is
- *    established as if by performing argument-dependent lookup (ADL) only
+ * 2. Otherwise, `build<RealType>(builder, extents)` (via ADL) if that
+ *    expression is valid and its result models the `layer`
  * 3. Otherwise, the program is ill-formed.
  *
  * ### Example
