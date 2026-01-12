@@ -475,49 +475,61 @@ template <std::size_t I, class Network, class Input>
                          std::tuple_element_t<I, std::remove_cvref_t<Network>>,
                          Input>
 struct predict_step<I, Network, Input> {
-  using current_layer = std::tuple_element_t<I, std::remove_cvref_t<Network>>;
-  using p_result = decltype(propagate(std::declval<current_layer&>(),
-                                      std::declval<Input>()));
+  using current_layer_type =
+      std::tuple_element_t<I, std::remove_cvref_t<Network>>;
+
+  using current_output_type = decltype(propagate(
+      std::declval<current_layer_type&>(), std::declval<Input>()));
+
   static constexpr bool is_last =
       (I + 1 == std::tuple_size_v<std::remove_cvref_t<Network>>);
+
   using next_input_type = std::conditional_t<
       is_last, void,
-      std::conditional_t<computation_errorable<p_result>,
-                         typename p_result::value_type, p_result>>;
+      std::conditional_t<computation_errorable<current_output_type>,
+                         typename current_output_type::value_type,
+                         current_output_type>>;
+
   static constexpr bool is_noexcept =
-      noexcept(
-          propagate(std::declval<current_layer&>(), std::declval<Input>())) &&
-      (is_last || predict_step<I + 1, Network, next_input_type>::is_noexcept);
+      noexcept(propagate(std::declval<current_layer_type&>(),
+                         std::declval<Input>())) &&
+      predict_step<I + 1, Network, next_input_type>::is_noexcept;
 
   static constexpr auto call(Network network, Input input) noexcept(is_noexcept)
       -> auto {
     auto intermediate =
         propagate(std::get<I>(network), std::forward<Input>(input));
+
     if constexpr (is_last) {
       return intermediate;
-    } else if constexpr (computation_errorable<decltype(intermediate)>) {
-      using next_step = predict_step<I + 1, Network, next_input_type>;
-      using next_output_type = decltype(next_step::call(
-          std::declval<Network>(), std::declval<next_input_type>()));
-      using result_type = std::expected<
-          std::conditional_t<computation_errorable<next_output_type>,
-                             typename next_output_type::value_type,
-                             next_output_type>,
-          computation_error>;
-      if (intermediate.has_value()) {
-        return result_type{next_step::call(std::forward<Network>(network),
-                                           std::move(intermediate).value())};
-      }
-      return result_type{std::unexpect, std::move(intermediate).error()};
     } else {
-      return predict_step<I + 1, Network, decltype(intermediate)>::call(
-          std::forward<Network>(network), std::move(intermediate));
+      using next_step = predict_step<I + 1, Network, next_input_type>;
+
+      if constexpr (computation_errorable<current_output_type>) {
+        using next_output_type = decltype(next_step::call(
+            std::declval<Network>(), std::declval<next_input_type>()));
+        using result_type = std::expected<
+            std::conditional_t<computation_errorable<next_output_type>,
+                               typename next_output_type::value_type,
+                               next_output_type>,
+            computation_error>;
+
+        if (intermediate.has_value()) {
+          return result_type{next_step::call(std::forward<Network>(network),
+                                             std::move(intermediate).value())};
+        }
+        return result_type{std::unexpect, std::move(intermediate).error()};
+      } else {
+        return next_step::call(std::forward<Network>(network),
+                               std::move(intermediate));
+      }
     }
   }
 };
 
 /**
- * @brief Predicts output from single input using the given sequential network.
+ * @brief Predicts output from single input using the given sequential
+ * network.
  *
  * This function performs forward propagation of a single input through the
  * entire sequential network, returning the final output.
@@ -567,8 +579,9 @@ constexpr auto predict(Network&& network, Input&& input) noexcept(
  * @brief Predicts batch output from batch input using the given sequential
  * network.
  *
- * This function performs forward propagation of multiple samples (batch input)
- * through the entire sequential network, returning the final batch output.
+ * This function performs forward propagation of multiple samples (batch
+ * input) through the entire sequential network, returning the final batch
+ * output.
  *
  * ### Error handling
  * Follows the same short-circuit logic as the single input version. If any

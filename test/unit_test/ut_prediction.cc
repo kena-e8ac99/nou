@@ -221,6 +221,47 @@ constexpr nou::layer auto layer_input1_output2_batch_propagate_errorable =
     layer_batch_propagate_errorable<1, 2, double>{{2.0, 3.0}};
 constexpr nou::layer auto layer_input2_output3_batch_propagate_errorable =
     layer_batch_propagate_errorable<2, 3, double>{{4.0, 5.0, 6.0}};
+
+template <auto InputSize, auto OutputSize>
+struct layer_propagate_noexcept {
+  using real_type = double;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
+  std::array<real_type, OutputSize>
+      output{};  // NOLINT(misc-non-private-member-variables-in-classes)
+
+  template <std::ranges::input_range Input>
+  [[nodiscard]] constexpr auto propagate([[maybe_unused]] Input&& input)
+      const noexcept -> std::array<real_type, OutputSize> {
+    return output;
+  }
+};
+constexpr nou::layer auto layer_input1_output2_propagate_noexcept =
+    layer_propagate_noexcept<1, 2>{{2.0, 3.0}};
+constexpr nou::layer auto layer_input2_output3_propagate_noexcept =
+    layer_propagate_noexcept<2, 3>{{4.0, 5.0, 6.0}};
+
+template <auto InputSize, auto OutputSize>
+struct layer_propagate_may_throw {
+  using real_type = double;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
+  std::array<real_type, OutputSize>
+      output{};  // NOLINT(misc-non-private-member-variables-in-classes)
+  template <std::ranges::input_range Input>
+  [[nodiscard]] constexpr auto propagate([[maybe_unused]] Input&& input) const
+      -> std::array<real_type, OutputSize> {
+    return output;
+  }
+};
+constexpr nou::layer auto layer_input1_output2_propagate_may_throw =
+    layer_propagate_may_throw<1, 2>{{2.0, 3.0}};
+constexpr nou::layer auto layer_input2_output3_propagate_may_throw =
+    layer_propagate_may_throw<2, 3>{{4.0, 5.0, 6.0}};
 }  // namespace
 
 auto main() -> int {
@@ -605,6 +646,38 @@ auto main() -> int {
         nou::predict(network, batch_input1_2).value(),
         std::vector{layer_input2_output3_batch_propagate_errorable.output,
                     layer_input2_output3_batch_propagate_errorable.output}));
+  }
+
+  // --- noexcept propagation ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_propagate_noexcept,
+                          layer_input2_output3_propagate_noexcept);
+    static_assert(noexcept(nou::predict(network, input1)));
+  }
+
+  // --- may-throw propagation ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_propagate_may_throw,
+                          layer_input2_output3_propagate_may_throw);
+    static_assert(not noexcept(nou::predict(network, input1)));
+  }
+
+  // --- mixed noexcept and may-throw propagation ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_propagate_noexcept,
+                          layer_input2_output3_propagate_may_throw);
+    static_assert(not noexcept(nou::predict(network, input1)));
+  }
+
+  // --- mixed may-throw and noexcept propagation ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2_propagate_may_throw,
+                          layer_input2_output3_propagate_noexcept);
+    static_assert(not noexcept(nou::predict(network, input1)));
   }
 
   return 0;
