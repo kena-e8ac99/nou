@@ -95,7 +95,8 @@ struct not_layer_builder {};
 
 struct incorrect_layer_builder {
   template <class RealType, class InputExtents>
-  [[nodiscard]] constexpr auto build() const -> not_layer {
+  [[nodiscard]] constexpr auto build(
+      [[maybe_unused]] InputExtents extents) const -> not_layer {
     return {};
   }
 };
