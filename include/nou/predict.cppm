@@ -385,55 +385,76 @@ struct propagate_impl {
 
 inline namespace cpo {
 /**
- * Customization point object for invoking layer forward propagation.
+ * Customization point object for propagating input through a layer.
  *
- * The `propagate` customization point object provides a uniform interface for
- * invoking layer forward propagation in neural network computations. It
- * supports multiple customization patterns, allowing users to define layer
- * propagation with either member functions or free/hidden friend functions.
+ * The name `propagate` denotes a customization point object (CPO) used to
+ * perform the forward propagation of input data through a neural network layer.
  *
- * **Invocation Patterns:**
- * 1. **Member function**: If the layer type `Layer` provides a member function
- *    `propagate(input)`, it will be invoked as `layer.propagate(input)`.
- * 2. **Free or hidden friend function**: If the layer type `Layer` does not
- *    provide a member function but has a free function or hidden friend
- *    function `propagate(layer, input)`, it will be invoked via ADL
- *    (Argument Dependent Lookup).
+ * ### Call signatures
+ * ```cpp
+ * template <class Layer, class Input>
+ *   requires /\* see below *\/
+ * constexpr auto propagate(Layer&& layer, Input&& input)
+ *     noexcept(noexcept(expression)) -> /\* see below *\/ auto;
+ * ```
+ * - `Layer`: The type of the layer to use for propagation.
+ * - `Input`: The type of the input data (single or batch input) to propagate
+ *   through the layer.
  *
- * The customization point object is instantiated as the inline variable
- * `propagate` in the inline `cpo` namespace, enabling convenient usage
- * in network computations.
+ * ### Constraints
+ * A call to `propagate` is valid only if:
+ * - The type (decayed `Layer`) models the `layer` concept
+ * - The type `Input` models either the `input<Layer>` or `batch_input<Layer>`
  *
- * **Return Types:**
- * - If the layer is error-free (cannot produce errors during computation),
- *   `propagate` returns `T` directly, where `T` is the output type of the
- *   layer.
- * - If the layer may produce errors during computation, `propagate` returns
- *   `std::expected<T, computation_error>`, enabling error propagation through
- *   the network.
+ * ### Behavior
+ * Let `L` be the type of `layer` after removing cv-ref qualifiers.
+ * The expression `propagate(layer, input)` is expression-equivalent to:
+ * 1. `layer.propagate(input)` if that expression is valid and its result models
+ *    the required output concept
+ * 2. Otherwise, `propagate(layer, input)` (via ADL) if that expression is valid
+ *    and its result models the required output concept
+ * 3. Otherwise, the program is ill-formed
  *
- * **Error Handling:**
- * When a layer returns `std::expected<T, computation_error>`, the `predict()`
- * function automatically handles error propagation:
- * - Errors are short-circuited: if a layer returns an error, subsequent layers
- *   are not executed
- * - The first encountered error is propagated to the caller
- * - If all layers are error-free, the final result is `T` (zero overhead)
+ * In steps 1 and 2, the required output concept is determined as follows:
+ * - If `Input` models `input<Layer>`, the result must model `output<Layer>`
+ * - If `Input` models `batch_input<Layer>`, the result must model
+ *   `batch_output<Layer>`
  *
- * @tparam Layer The layer type (must satisfy `layer` concept)
- * @tparam Input The input type (must be compatible with the layer's
- *               `input_shape_type`)
+ * ### Example
+ * ```cpp
+ * struct my_layer {
+ *   using real_type = float;
+ *   static constexpr std::extents<std::size_t, 3> input_extents{};
+ *   static constexpr std::extents<std::size_t, 4> output_extents{};
  *
- * @return Either `T` (error-free computation) or
- *         `std::expected<T, computation_error>` (fallible computation),
- *         where `T` is the output type produced by the layer's propagation
+ *   // Implementation handling both single and batch input via template
+ *   template <class Input>
+ *   auto propagate(Input&& input) const {
+ *     // In a real implementation, check if `Input` is single or batch input
+ *     // and compute appropriately.
+ *     return /\* ... construct output or batch output ... *\/;
+ *   }
+ * };
+ * constexpr nou::layer my_layer layer{};
  *
- * @note This function is fully `constexpr` and can be evaluated at
- *       compile-time if the layer's propagation operation is `constexpr`.
+ * // Single input propagation
+ * constexpr nou::output<my_layer> auto output =
+ *     nou::propagate(layer, std::array<float, 3>{1.0f, 2.0f, 3.0f});
  *
- * @see predict for how propagation results are composed across network layers.
- * @see computation_error for possible error conditions.
- * @see computation_errorable for identifying layers that may produce errors.
+ * // Batch input propagation (fixed-size batch)
+ * constexpr nou::batch_output<my_layer> auto batch_output =
+ *     nou::propagate(layer, std::array<std::array<float, 3>, 2>{
+ *         {1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}});
+ *
+ * // Batch input propagation (dynamic-size batch)
+ * constexpr nou::batch_output<my_layer> auto dynamic_batch_output =
+ *     nou::propagate(layer, std::vector<std::array<float, 3>>{
+ *         {1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}});
+ * ```
+ *
+ * @see layer for the requirements on `Layer` type.
+ * @see input and batch_input for the requirements on `Input` type.
+ * @see output and batch_output for the requirements on the result type.
  */
 export inline constexpr auto propagate = propagate_impl{};
 }  // namespace cpo
