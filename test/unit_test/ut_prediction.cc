@@ -604,8 +604,9 @@ auto main() -> int {
     constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2_propagate_member,
                           layer_input2_output3_propagate_member);
-    static_assert(nou::predict(network, std::vector<double>(1.0, 1.0)) ==
-                  layer_input2_output3_propagate_member.output);
+    static_assert(
+        nou::predict(network, std::ranges::to<std::vector<double>>(input1)) ==
+        layer_input2_output3_propagate_member.output);
   }
 
   // --- prediction fails if input type do not match ---
