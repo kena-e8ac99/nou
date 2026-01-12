@@ -94,7 +94,7 @@ struct build_impl {
 
 inline namespace cpo {
 /**
- * @brief Customization point object for building layer.
+ * @brief Customization point object for building a layer.
  *
  * The name `build` denotes a customization point object (CPO) used to construct
  * a layer during neural network construction.
@@ -161,7 +161,7 @@ struct is_connectable<First, Second, Rest...>
     : public is_connectable<Second, Rest...> {};
 
 // Recursive case: A layer followed by a builder can connect if the builder
-// can be instantiated with the layer's real_type and output_shape_type.
+// can be instantiated with the layer's real_type and output_extents.
 // The instantiated layer replaces the builder for further validation.
 template <layer First, class Second, class... Rest>
   requires requires {
@@ -320,7 +320,7 @@ using last_layer_t =
  * @param rest Additional layers or layer builders to be appended.
  * @return A sequential neural network that models the `sequential_network`
  * concept.
- * @note All arguments are taken by value and moved into the resulting network
+ * @note All arguments are taken by value and moved into the resulting network.
  */
 export template <layer First, class Second, class... Rest>
   requires(is_connectable<First, Second, Rest...>::value)

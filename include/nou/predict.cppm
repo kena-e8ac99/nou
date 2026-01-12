@@ -70,8 +70,9 @@ export enum class computation_error : std::uint8_t {
  * @see computation_error for the computation error conditions.
  */
 export template <class T>
-concept computation_errorable =
-    std::same_as<T, std::expected<typename T::value_type, computation_error>>;
+concept computation_errorable = requires {
+  typename T::value_type;
+} && std::same_as<T, std::expected<typename T::value_type, computation_error>>;
 
 // Internal helper: Type trait to check if an input type matches layer extents.
 // Primary template: Default to false for non-matching types.
