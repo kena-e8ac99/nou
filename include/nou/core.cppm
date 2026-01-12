@@ -2,6 +2,7 @@ module;
 
 #include <concepts>
 #include <cstddef>
+#include <mdspan>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -11,132 +12,131 @@ export module nou.core;
 namespace nou {
 
 /**
- * A compile-time shape descriptor template for neural network dimensions.
+ * @brief Specifies that a type qualifies as a neural network layer.
  *
- * This template struct represents a single dimension size in a neural network
- * shape, constrained to positive integral values known at compile-time.
+ * The concept `layer<T>` specifies that `T` is the type of a layer that can be
+ * used to construct a neural network.
  *
- * The struct exposes the dimension value through:
- * - `type`  : the type of the dimension constant (e.g., int)
- * - `value` : the dimension size as a `constexpr` value
+ * ### Semantics requirements
+ * `layer<T>` is modeled only if `T` provides the following members:
+ * - `T::real_type`: A member type used for computations within the layer
+ * - `T::input_extents` and `T::output_extents`: Static data members whose types
+ *   are specializations of `std::extents`. They describe the shape of a
+ *   single sample (excluding batch dimension)
  *
- * @tparam N A positive integral constant representing the dimension size.
- */
-export template <std::integral auto N>
-  requires(N > 0)
-struct shape {
-  using type = decltype(N);
-  static constexpr type value = N;
-};
-
-/**
- * Specifies that a type can be used as a neural network layer.
+ * ### Example
+ * ```cpp
+ * struct my_layer {
+ *   using real_type = float;
+ *   // Defines a 1D input of size 2 (per sample).
+ *   // Note: batch dimension is not included here.
+ *   static constexpr std::extents<std::size_t, 2> input_extents{};
+ *   // Defines a 1D output of size 3 (per sample).
+ *   static constexpr std::extents<std::size_t, 3> output_extents{};
+ *   // ...
+ * };
+ * static_assert(nou::layer<my_layer>);
+ * ```
  *
- * The layer concept specifies that a type provides the following member types
- * required for neural network layers.
- * - `real_type`: a type used for computations (typically floating-point, but
- * can be others)
- * - `input_shape_type`: a specialization of `shape`, representing the input
- *   dimension of the layer
- * - `output_shape_type`: a specialization of `shape`, representing the output
- * dimension of the layer
- */
-export template <class T>
-concept layer = requires {
-  typename T::real_type;
-  typename T::input_shape_type;
-  typename T::output_shape_type;
-  requires std::same_as<typename T::input_shape_type,
-                        shape<T::input_shape_type::value>>;
-  requires std::same_as<typename T::output_shape_type,
-                        shape<T::output_shape_type::value>>;
-};
-
-// Internal helper: Type trait to detect if a type is a sequential network
-// (tuple of layers). Primary template matches non-network types.
-template <class T>
-struct is_sequential_network : public std::false_type {};
-
-// Specialization matches tuples containing only layer types.
-template <layer... Ts>
-struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
-
-/**
- * Specifies that a type is a sequential neural network.
- *
- * A sequential network is a tuple-like container of `layer` types where each
- * layer's output shape matches the next layer's input shape. Layers are
- * processed in order during propagation.
- *
- * Sequential networks are composed using `make_network()` and evaluated using
- * `predict()`. This concept distinguishes sequential networks from other
- * possible network topologies (e.g., graph-based networks) that may be added
- * in the future.
- *
- * @see make_network for how sequential networks are constructed.
- * @see predict for how sequential networks are evaluated.
+ * @tparam T The type to be checked.
+ * @note This concept does not describe how the layer performs forward
+ *       propagation, back-propagation, or parameter updates. Those behaviors
+ *       are modeled separately.
+ * @see make_network for how layers are composed into networks.
+ * @see propagate for concepts that layers should satisfy during propagation.
  */
 export template <class T>
-concept sequential_network = is_sequential_network<T>::value;
+concept layer =
+    requires {
+      typename T::real_type;
+      T::input_extents;
+      T::output_extents;
+    } &&
+    std::same_as<decltype(auto(T::input_extents)),
+                 decltype(std::extents{T::input_extents})> &&
+    std::same_as<decltype(auto(T::output_extents)),
+                 decltype(std::extents{T::output_extents})>;
 
+// Internal helper: Implementation of the build customization point object.
 struct build_impl {
-  template <class RealType, class Shape, class T>
+  // Member function overload.
+  template <class RealType, class T, class IndexType, std::size_t... Extents>
+  constexpr auto operator()(T&& builder,
+                            std::extents<IndexType, Extents...> extents) const
+      noexcept(
+          noexcept(std::forward<T>(builder).template build<RealType>(extents)))
+          -> layer auto
     requires requires {
-      { std::declval<T>().template build<RealType, Shape>() } -> layer;
+      { std::forward<T>(builder).template build<RealType>(extents) } -> layer;
     }
-  constexpr auto operator()(T&& builder) const noexcept(
-      noexcept(std::forward<T>(builder).template build<RealType, Shape>()))
-      -> layer auto {
-    return std::forward<T>(builder).template build<RealType, Shape>();
+  {
+    return std::forward<T>(builder).template build<RealType>(
+        std::move(extents));
   }
 
-  template <class RealType, class Shape, class T>
+  // Free function / hidden friend overload.
+  template <class RealType, class T, class IndexType, std::size_t... Extents>
+  constexpr auto operator()(T&& builder,
+                            std::extents<IndexType, Extents...> extents) const
+      noexcept(noexcept(build<RealType>(std::forward<T>(builder), extents)))
+          -> layer auto
     requires(
-        !requires { std::declval<T>().template build<RealType, Shape>(); } &&
+        !requires {
+          std::forward<T>(builder).template build<RealType>(extents);
+        } &&
         requires {
-          { build<RealType, Shape>(std::declval<T>()) } -> layer;
+          { build<RealType>(std::forward<T>(builder), extents) } -> layer;
         })
-  constexpr auto operator()(T&& builder) const
-      noexcept(noexcept(build<RealType, Shape>(std::forward<T>(builder))))
-          -> layer auto {
-    return build<RealType, Shape>(std::forward<T>(builder));
+  {
+    return build<RealType>(std::forward<T>(builder), std::move(extents));
   }
 };
+
 inline namespace cpo {
 /**
- * Customization point object for invoking layer builders.
+ * @brief Customization point object for building a layer.
  *
- * The `build` customization point object provides a uniform interface for
- * invoking layer builders in neural network construction. It supports multiple
- * customization patterns, allowing users to define layer builders with either
- * member functions or free/hidden friend functions.
+ * The name `build` denotes a customization point object (CPO) used to construct
+ * a layer during neural network construction.
  *
- * **Invocation Patterns:**
- * 1. **Member function**: If the builder type `T` provides a member function
- *    template `build<RealType, Shape>()`, it will be invoked as
- *    `builder.build<RealType, Shape>()`.
- * 2. **Free or hidden friend function**: If the builder type `T` does not
- *    provide a member function but has a free function or hidden friend
- *    function template `build<RealType, Shape>(builder)`, it will be invoked
- *    via ADL (Argument Dependent Lookup).
+ * ### Call signature
+ * ```cpp
+ * template <class RealType, class T, class IndexType, std::size_t... Extents>
+ *   requires /\* see below *\/
+ * constexpr auto build(T&& builder,
+ *                      std::extents<IndexType, Extents...> extents)
+ *     noexcept(noexcept(expression)) -> layer auto;
+ * ```
+ * - `RealType`: A type used for computations, which corresponds to the
+ *   `real_type` of the preceding layer in the network.
+ * - `extents`: The shape of a single sample (excluding batch dimension). This
+ *   corresponds to the `output_extents` of the preceding layer and serves as
+ *   the input shape for the layer being built.
  *
- * The customization point object is instantiated as the inline variable `build`
- * in the inline `cpo` namespace, enabling convenient usage in network
- * construction.
+ * ### Behavior
+ * The expression `build<RealType>(builder, extents)` is expression-equivalent
+ * to:
+ * 1. `builder.template build<RealType>(extents)` if that expression is valid
+ *    and its result models the `layer` concept
+ * 2. Otherwise, `build<RealType>(builder, extents)` (via ADL) if that
+ *    expression is valid and its result models the `layer` concept
+ * 3. Otherwise, the program is ill-formed.
  *
- * @tparam RealType The type used for computations (typically floating-point,
- *                  but can be others)
- * @tparam Shape A specialization of `shape` representing the input dimension
- *               for the layer to be built.
- * @tparam T The type of the layer builder object.
+ * ### Example
+ * ```cpp
+ * struct my_layer_builder {
+ *   static constexpr std::size_t output_features = 3;
  *
- * @return A layer satisfying the `layer` concept.
+ *   template <class RealType, class IndexType, std::size_t... Extents>
+ *   auto build(std::extents<IndexType, Extents...> input_shape) const {
+ *     // Logic to construct the layer using RealType and input_shape.
+ *     return my_layer<RealType, Extents...>{input_shape, output_features};
+ *   }
+ * };
+ * ```
  *
- * @note The returned layer's `input_shape_type` will typically match the
- *       provided `Shape` template parameter, and its `output_shape_type` is
- *       determined by the builder's implementation.
- *
- * @see make_network for how this CPO is used in network construction.
+ * @see layer for the requirements on the resulting layer type.
+ * @see make_network for how build is used during network construction.
  */
 export inline constexpr auto build = build_impl{};
 }  // namespace cpo
@@ -156,68 +156,171 @@ struct is_connectable<Layer> : public std::true_type {};
 // Recursive case: Two consecutive layers can connect if their output/input
 // shapes match. Recursively checks the remaining layers.
 template <layer First, layer Second, class... Rest>
-  requires(
-      static_cast<std::common_type_t<typename First::output_shape_type::type,
-                                     typename Second::input_shape_type::type>>(
-          First::output_shape_type::value) ==
-      static_cast<std::common_type_t<typename First::output_shape_type::type,
-                                     typename Second::input_shape_type::type>>(
-          Second::input_shape_type::value))
+  requires(First::output_extents == Second::input_extents)
 struct is_connectable<First, Second, Rest...>
     : public is_connectable<Second, Rest...> {};
 
 // Recursive case: A layer followed by a builder can connect if the builder
-// can be instantiated with the layer's real_type and output_shape_type.
+// can be instantiated with the layer's real_type and output_extents.
 // The instantiated layer replaces the builder for further validation.
 template <layer First, class Second, class... Rest>
   requires requires {
     {
-      build.template
-      operator()<typename First::real_type, typename First::output_shape_type>(
-          std::declval<Second>())
+      build.template operator()<typename First::real_type>(
+          std::declval<Second>(), First::output_extents)
     } -> layer;
   }
 struct is_connectable<First, Second, Rest...>
     : public is_connectable<
           First,
-          decltype(build.template operator()<typename First::real_type,
-                                             typename First::output_shape_type>(
-              std::declval<Second>())),
+          decltype(build.template operator()<typename First::real_type>(
+              std::declval<Second>(), First::output_extents)),
           Rest...> {};
 
+// Internal helper: Type trait to detect if a type is a sequential network
+// which is a tuple of layers where all layers satisfy is_connectable.
+template <class T>
+struct is_sequential_network : public std::false_type {};
+
+// Specialization matches tuples containing only layer types that are
+// connectable.
+template <layer... Ts>
+  requires is_connectable<Ts...>::value
+struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
+
 /**
- * Constructs a neural network by composing layers or layer builders.
+ * @brief Specifies that a type qualifies as a sequential neural network.
  *
- * This function constructs a neural network from a sequence of layers or layer
- * builders. Each argument is processed in order:
- * - If the argument is a layer, it is copied or moved directly into the
- * network.
- * - If the argument is a layer builder, it is instantiated by invoking the
- * `build` customization point object with the previous layer's `real_type` and
- * `output_shape_type` (see @pre).
+ * The concept `sequential_network<T>` specifies that T is the type of a
+ * sequential neural network composed of two or more layers where each layer's
+ * output shape matches the subsequent layer's input shape.
  *
- * @tparam First The type of the first layer.
- * @tparam Second The type of the second layer or layer builder.
- * @tparam Rest The types of the remaining layers or layer builders.
+ * ### Semantic requirements
+ * `sequential_network<T>` is modeled only if:
+ * - `T` is a specialization of `std::tuple` where each element models the
+ *   `layer` concept
+ * - `T` contains two or more layers
+ * - For each adjacent pair of layers (\f$L_i\f$, \f$L_{i+1}\f$) in `T`:
+ *   - \f$L_i::output\_extents == L_{i+1}::input\_extents\f$ (The output shape
+ *     of a layer must exactly match the input shape of the next layer)
  *
- * @param first The first layer in the network.
- * @param second The layer or layer builder for the second layer in the network.
- * @param rest The layers or layer builders for the remaining layers in the
- * network.
+ * ### Example
+ * ```cpp
+ * struct layer1 {
+ *   using real_type = float;
+ *   static constexpr std::extents<std::size_t, 2> input_extents{};
+ *   static constexpr std::extents<std::size_t, 3> output_extents{};
+ *   // ...
+ * };
+ * struct layer2 {
+ *   using real_type = float;
+ *   static constexpr std::extents<std::size_t, 3> input_extents{};
+ *   static constexpr std::extents<std::size_t, 4> output_extents{};
+ *   // ...
+ * };
  *
- * @return A network object satisfying the `sequential_network` concept.
+ * // Matches: layer1 output [3] == layer2 input [3]
+ * using my_network = std::tuple<layer1, layer2>;
+ * static_assert(nou::sequential_network<my_network>);
+ * ```
  *
- * @pre For each adjacent pair of arguments `(Prev, Next)`:
- * - `Prev` must satisfy the `layer` concept
- * - `Next` must satisfy one of the following:
- *   - **`Next` satisfies the `layer` concept**:
- *     `Prev::output_shape_type` must match `Next::input_shape_type`.
- *   - **`Next` is a layer builder**:
- *     `build` customization point object must be invocable and return a type
- *     satisfying the `layer` concept. The resulting layer becomes the next
- *     `Prev` in the sequence.
+ * @tparam T The type to be checked.
+ * @see layer for the requirements on individual layers.
+ * @see make_network for how sequential network is constructed.
+ */
+export template <class T>
+concept sequential_network = is_sequential_network<T>::value;
+
+/**
+ * @brief Represents the type of the first layer in the given sequential network
+ * type.
  *
- * @see build for details on how layer builders are invoked.
+ * The type alias `first_layer_t<Network>` extracts the type of the first layer
+ * in `Network` if `Network` models the `sequential_network` concept. Otherwise,
+ * the program is ill-formed.
+ *
+ * ### Example
+ * ```cpp
+ * using network = std::tuple<layer1, layer2, layer3>;
+ * static_assert(std::same_as<nou::first_layer_t<network>, layer1>);
+ * ```
+ *
+ * @tparam Network The type of the sequential network. This type must model the
+ * `sequential_network` concept.
+ * @see sequential_network for the requirements on the Network type.
+ */
+export template <class Network>
+  requires sequential_network<std::remove_cvref_t<Network>>
+using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
+
+/**
+ * @brief Represents the type of the last layer in the given sequential
+ * network type.
+ *
+ * The type alias `last_layer_t<Network>` extracts the type of the last layer in
+ * `Network` if `Network` models the `sequential_network` concept. Otherwise,
+ * the program is ill-formed.
+ *
+ * ### Example
+ * ```cpp
+ * using network = std::tuple<layer1, layer2, layer3>;
+ * static_assert(std::same_as<nou::last_layer_t<network>, layer3>);
+ * ```
+ *
+ * @tparam Network The type of the sequential network. This type must model the
+ * `sequential_network` concept.
+ * @see sequential_network for the requirements on the Network type.
+ */
+export template <class Network>
+  requires sequential_network<std::remove_cvref_t<Network>>
+using last_layer_t =
+    std::tuple_element_t<std::tuple_size_v<std::remove_cvref_t<Network>> - 1,
+                         std::remove_cvref_t<Network>>;
+
+/**
+ * @brief Constructs a sequential neural network.
+ *
+ * The function template `make_network` constructs a sequential neural network
+ * by composing the provided layers and/or layer builders. It automatically
+ * resolves builders into concrete layers using the output properties of the
+ * preceding layer.
+ *
+ * ### Example
+ * ```cpp
+ * struct layer1 { ... }; // models layer
+ * struct layer2 { ... }; // models layer
+ * struct layer3_builder {
+ *   template <class RealType, class IndexType, std::size_t... Extents>
+ *   auto build(std::extents<IndexType, Extents...> input_shape) const {
+ *     return layer3<RealType, Extents...>{input_shape, /\* ... \*\/};
+ *   }
+ * };
+ * // Construct a network: the third layer is built using properties from the
+ * // second layer.
+ * constexpr nou::sequential_network auto network =
+ *     nou::make_network(layer1{}, layer2{}, layer3_builder{});
+ * ```
+ *
+ * @tparam First The type of the first layer. This type must model the `layer`
+ * concept.
+ * @tparam Second The type of the second layer or layer builder. Let \f$L_1\f$
+ * be `First`, `Second` must satisfy one of:
+ * - `Second` models the `layer` concept where `Second::input_extents ==
+ *   \f$L_1\f$::output_extents`
+ * - `Second` is a builder where `build<\f$L_1\f$::real_type>(second,
+ *   \f$L_1\f$::output_extents)` results in a `layer` \f$L_2\f$ with
+ *   `\f$L_2\f$::input_extents == \f$L_1\f$::output_extents`
+ *
+ * @tparam Rest The types of additional layers or builders. Each element
+ * \f$E_i\f$ must satisfy the same connectivity requirements with respect to its
+ * preceding layer \f$L_{i-1}\f$.
+ *
+ * @param first The first layer of the network.
+ * @param second The second layer or layer builder.
+ * @param rest Additional layers or layer builders to be appended.
+ * @return A sequential neural network that models the `sequential_network`
+ * concept.
+ * @note All arguments are taken by value and moved into the resulting network.
  */
 export template <layer First, class Second, class... Rest>
   requires(is_connectable<First, Second, Rest...>::value)
@@ -229,11 +332,8 @@ constexpr auto make_network(First first, Second second, Rest... rest)
       return std::move(std::get<I>(tuple));
     } else {
       using prev_layer_type = std::tuple_element_t<I - 1, T>;
-      using real_type = prev_layer_type::real_type;
-      using input_shape_type = prev_layer_type::output_shape_type;
-
-      return build.template operator()<real_type, input_shape_type>(
-          std::move(std::get<I>(tuple)));
+      return build.template operator()<typename prev_layer_type::real_type>(
+          std::move(std::get<I>(tuple)), prev_layer_type::output_extents);
     }
   };
   return [&]<std::size_t... Is>(auto tuple, std::index_sequence<Is...>)

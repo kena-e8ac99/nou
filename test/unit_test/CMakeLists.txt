@@ -1,6 +1,10 @@
 function(nou_test name)
   add_executable(${name} ${name}.cc)
   target_link_libraries(${name} PRIVATE nou)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(${name} PRIVATE -stdlib=libc++)
+    target_link_options(${name} PRIVATE -stdlib=libc++ -lc++abi)
+  endif()
   add_test(NAME ${name} COMMAND ${name})
 endfunction()
 

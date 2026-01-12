@@ -11,14 +11,19 @@
 The library uses a modular architecture with clear separation of concerns:
 
 - **`nou.core`** ([include/nou/core.cppm](../include/nou/core.cppm)) - Core concepts and network construction
-  - Exports: `shape<N>`, `layer` concept, `sequential_network` concept, `network` concept, `is_connectable` trait
+  - Exports: `layer` concept, `sequential_network` concept, `is_connectable` trait
   - Exports: `build` CPO, `make_network()` function
+  - Exports: `first_layer_t<Network>`, `last_layer_t<Network>` type aliases
+  - Uses `std::extents` for shape representation (no custom `shape<N>` type)
   - No dependencies on other nou modules
   
 - **`nou.predict`** ([include/nou/predict.cppm](../include/nou/predict.cppm)) - Inference pipeline and error handling
   - Re-exports: `nou.core` (provides transitive access to core types)
-  - Exports: `propagate` CPO, `computation_error` enum, `computation_errorable` concept
-  - Exports: `predict()` function for neural network inference
+  - Exports: `computation_error` enum, `computation_errorable` concept
+  - Exports: `input<Input, Layer>`, `output<Output, Layer>` concepts for single-sample validation
+  - Exports: `batch_input<BatchInput, Layer>`, `batch_output<BatchOutput, Layer>` concepts for batch validation
+  - Exports: `propagate` CPO (supports both single-sample and batch inputs)
+  - Exports: `predict()` function overloads for single-sample and batch inference
   
 - **`nou`** ([include/nou/nou.cppm](../include/nou/nou.cppm)) - Umbrella module for convenience
   - Re-exports: `nou.predict` (transitively includes `nou.core`)
@@ -26,18 +31,19 @@ The library uses a modular architecture with clear separation of concerns:
 
 **Module Dependency Chain**: `nou.core` → `nou.predict` → `nou` (umbrella)
 
-**Key Concepts**: `shape<N>` (dimension descriptor), `layer` (layer interface), `network` (tuple-like container of layers)
+**Key Concepts**: `layer` (layer interface with `std::extents` for shapes), `sequential_network` (tuple of connectable layers), `input`/`output` (single-sample type validation), `batch_input`/`batch_output` (batch type validation)
 
-**Central Functions**: `make_network()` composes layers/builders; `predict()` propagates inputs and conditionally returns `T` or `std::expected<T, computation_error>`
+**Central Functions**: `make_network()` composes layers/builders; `predict()` propagates single-sample or batch inputs and conditionally returns `T` or `std::expected<T, computation_error>`
 
-**CPO Pattern**: `build()` customization point supports member functions, free functions, and hidden friend functions; `propagate` CPO supports member or ADL free/hidden friend
+**CPO Pattern**: `build()` customization point supports member functions, free functions, and hidden friend functions; `propagate` CPO supports member or ADL free/hidden friend for both single and batch inputs
 
 ### Type System Fundamentals
 
-- **`shape<N>`**: Compile-time dimension size (integral auto, N > 0)
-- **`layer` Concept**: Requires `real_type`, `input_shape_type`, `output_shape_type` member types
-- **`network` Concept**: A `std::tuple` containing only `layer` types
-- **`is_connectable`**: Validates adjacent layers/builders have matching input/output shapes
+- **`std::extents`**: Standard library type for compile-time shape representation; layers use `std::extents<std::size_t, N>` for `input_extents` and `output_extents`
+- **`layer` Concept**: Requires `real_type` member type and `input_extents`, `output_extents` static data members (both `std::extents` specializations)
+- **`sequential_network` Concept**: A `std::tuple` containing only connectable `layer` types
+- **`is_connectable`**: Validates adjacent layers/builders have matching input/output extents
+- **Input/Output Concepts**: `input<Input, Layer>`, `output<Output, Layer>`, `batch_input<BatchInput, Layer>`, `batch_output<BatchOutput, Layer>` validate type compatibility with layer shapes and real types
 - **Error Model**: `computation_error` (uint8_t) is the unified runtime error; `computation_errorable` concept detects `std::expected<T, computation_error>`
 
 ### Design Patterns
@@ -84,8 +90,8 @@ run-clang-tidy-19 -p build include
 - **Internal Helpers**: Use unnamed namespace, not `export`
 - **Template Specializations**: Stay internal unless explicitly exported
 - **Exported APIs by Module**:
-  - `nou.core`: `shape`, `layer`, `sequential_network`, `network`, `is_connectable`, `build` CPO, `make_network()`
-  - `nou.predict`: `propagate` CPO, `computation_error`, `computation_errorable`, `predict()` (plus re-exported `nou.core` APIs)
+  - `nou.core`: `layer`, `sequential_network`, `is_connectable`, `build` CPO, `make_network()`, `first_layer_t`, `last_layer_t`
+  - `nou.predict`: `computation_error`, `computation_errorable`, `input`, `output`, `batch_input`, `batch_output`, `propagate` CPO, `predict()` (plus re-exported `nou.core` APIs)
   - `nou`: All APIs via re-export of `nou.predict`
 
 ### Builder Implementation Options
@@ -94,18 +100,18 @@ All three patterns are tested and supported:
 ```cpp
 // 1. Member function
 struct MyBuilder {
-  template <class Real, class Shape>
-  auto build() const -> layer;
+  template <class RealType, class IndexType, std::size_t... Extents>
+  auto build(std::extents<IndexType, Extents...> input_shape) const -> layer;
 };
 
 // 2. Free function (ADL via nou namespace)
-template <class Real, class Shape>
-auto build(const MyBuilder& b) -> layer;
+template <class RealType, class IndexType, std::size_t... Extents>
+auto build(const MyBuilder& b, std::extents<IndexType, Extents...> input_shape) -> layer;
 
 // 3. Hidden friend
 struct MyBuilder {
-  template <class Real, class Shape>
-  friend auto build(const MyBuilder& b) -> layer;
+  template <class RealType, class IndexType, std::size_t... Extents>
+  friend auto build(const MyBuilder& b, std::extents<IndexType, Extents...> input_shape) -> layer;
 };
 ```
 
@@ -134,7 +140,7 @@ struct MyBuilder {
 
 ### CI/CD
 
-- **Linux CI** (.github/workflows/linux.yml): Tests g++-14 and clang++-19
+- **Linux CI** (.github/workflows/linux.yml): Tests clang++-19
 - **Linting**: clang++-19 job runs clang-tidy-19
 
 ## Critical Developer Knowledge
@@ -143,8 +149,17 @@ struct MyBuilder {
 
 The `is_connectable` trait recursively validates that:
 - First argument is a `layer`
-- Each subsequent argument is either: a `layer` with matching input_shape, OR a builder that can produce one
-- Output shape of layer N = input shape of layer N+1
+- Each subsequent argument is either: a `layer` with matching `input_extents`, OR a builder that can produce one
+- Output extents of layer N (`output_extents`) must equal input extents of layer N+1 (`input_extents`)
+
+### Input/Output Type Validation
+
+The `input`, `output`, `batch_input`, and `batch_output` concepts use the internal `is_extents_match` trait to validate:
+- Single-sample inputs/outputs: container element type matches `Layer::real_type`, and shape matches layer's extents (rank 1 for single-sample)
+- Batch inputs/outputs: range of single-sample inputs/outputs (rank 2: `[batch_size, features]`)
+- Error-free vs fallible types: handles both plain `T` and `std::expected<T, computation_error>`
+- Scalar inputs: for single-element extents (`std::extents<std::size_t, 1>`), accepts plain `real_type`
+- Multi-dimensional support: recursively validates nested ranges for higher-rank extents
 
 ### Why Compile-Time?
 
@@ -170,4 +185,4 @@ All computations are `constexpr` to ensure:
 
 - **Clang-format**: [.clang-format](../.clang-format) enforces 80-column limit, 2-space indent
 - **Clang-tidy**: [.clang-tidy](../.clang-tidy) enforces modern C++, no NOLINT comments without reason
-- **Comment Style**: Detailed Doxygen comments on exported types and functions
+- **Comment Style**: Detailed Doxygen comments on exported types and functions. Must follow the wording style in C++ standard library documentation.

@@ -13,15 +13,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cxx: [g++-14, clang++-19]
+        cxx: [clang++-19]
+        # Using g++-14 currently causes compilation errors due to lack of `mdspan` support.
+        # cxx: [g++-14, clang++-19] 
     steps:
       - uses: actions/checkout@v6
       - name: Install g++-14
         if: matrix.cxx == 'g++-14'
-        run: sudo apt install -y g++-14
+        run: sudo apt update && sudo apt install -y g++-14 libstdc++-14-dev
       - name: Install clang-19
         if: matrix.cxx == 'clang++-19'
-        run: sudo apt install -y clang-19 clang-tidy-19
+        run: sudo apt update && sudo apt install -y clang-19 clang-tidy-19 libc++-19-dev libc++abi-19-dev
       - name: Configure CMake
         run: >
           cmake -Bbuild -GNinja -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}

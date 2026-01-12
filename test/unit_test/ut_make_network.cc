@@ -1,5 +1,6 @@
+#include <cstddef>
+#include <mdspan>
 #include <tuple>
-#include <type_traits>
 #include <utility>
 
 import nou;
@@ -12,15 +13,19 @@ concept compile_fail_make_network =
 
 template <auto InputSize, auto OutputSize>
 struct layer {
-  using input_shape_type = nou::shape<InputSize>;
-  using output_shape_type = nou::shape<OutputSize>;
   using real_type = double;
+  static constexpr auto input_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
+  static constexpr auto output_extents =
+      std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
   real_type value{};  // NOLINT(misc-non-private-member-variables-in-classes)
 };
 
-template <auto InputSize, auto OutputSize>
-constexpr auto operator==(layer<InputSize, OutputSize> lhs,
-                          layer<InputSize, OutputSize> rhs) -> bool {
+template <auto LhsInputSize, auto LhsOutputSize, auto RhsInputSize,
+          auto RhsOutputSize>
+  requires(LhsInputSize == RhsInputSize) && (LhsOutputSize == RhsOutputSize)
+constexpr auto operator==(layer<LhsInputSize, LhsOutputSize> lhs,
+                          layer<RhsInputSize, RhsOutputSize> rhs) -> bool {
   return lhs.value == rhs.value;
 }
 
@@ -43,58 +48,55 @@ constexpr nou::layer auto layer_input3_output4 =
 
 struct not_layer {};
 
-template <std::integral auto OutputSize>
+template <auto OutputSize>
 struct layer_builder_member {
-  template <class RealType, class Shape>
-  [[nodiscard]] constexpr auto build() const
-      -> layer<Shape::value, OutputSize> {
+  template <class RealType, class InputExtents>
+  [[nodiscard]] constexpr auto build([[maybe_unused]] InputExtents extents)
+      const -> layer<InputExtents::static_extent(0), OutputSize> {
     return {.value = static_cast<RealType>(value)};
   }
   double value{};
 };
 
 constexpr auto layer_builder_member_output3 =
-    layer_builder_member<std::remove_cvref_t<
-        decltype(layer_input2_output3)>::output_shape_type::value>{
-        .value = layer_input2_output3.value};
+    layer_builder_member<3>{.value = layer_input2_output3.value};
 
-template <std::integral auto OutputSize>
+template <auto OutputSize>
 struct layer_builder_free_func {
   double value{};
 };
 
-template <class RealType, class Shape, std::integral auto OutputSize>
+template <class RealType, class InputExtents, auto OutputSize>
 [[nodiscard]] constexpr auto build(
-    const layer_builder_free_func<OutputSize>& builder)
-    -> layer<Shape::value, OutputSize> {
+    const layer_builder_free_func<OutputSize>& builder,
+    [[maybe_unused]] InputExtents extents)
+    -> layer<InputExtents::static_extent(0), OutputSize> {
   return {.value = static_cast<RealType>(builder.value)};
 }
 constexpr auto layer_builder_free_func_output3 =
-    layer_builder_free_func<std::remove_cvref_t<
-        decltype(layer_input2_output3)>::output_shape_type::value>{
-        .value = layer_input2_output3.value};
+    layer_builder_free_func<3>{.value = layer_input2_output3.value};
 
-template <std::integral auto OutputSize>
+template <auto OutputSize>
 struct layer_builder_hidden_friend {
   double value{};
 
-  template <class RealType, class Shape>
+  template <class RealType, class InputExtents>
   [[nodiscard]] friend constexpr auto build(
-      const layer_builder_hidden_friend<OutputSize>& builder)
-      -> layer<Shape::value, OutputSize> {
+      const layer_builder_hidden_friend<OutputSize>& builder,
+      [[maybe_unused]] InputExtents extents)
+      -> layer<InputExtents::static_extent(0), OutputSize> {
     return {.value = static_cast<RealType>(builder.value)};
   }
 };
 constexpr auto layer_builder_hidden_friend_output3 =
-    layer_builder_hidden_friend<std::remove_cvref_t<
-        decltype(layer_input2_output3)>::output_shape_type::value>{
-        .value = layer_input2_output3.value};
+    layer_builder_hidden_friend<3>{.value = layer_input2_output3.value};
 
 struct not_layer_builder {};
 
 struct incorrect_layer_builder {
-  template <class RealType, class Shape>
-  [[nodiscard]] constexpr auto build() const -> not_layer {
+  template <class RealType, class InputExtents>
+  [[nodiscard]] constexpr auto build(
+      [[maybe_unused]] InputExtents extents) const -> not_layer {
     return {};
   }
 };
@@ -135,7 +137,7 @@ auto main() -> int {
     static_assert(compile_fail_make_network<not_layer, layer_input1_output2_t>);
   }
 
-  // --- model construction fails if layer's input shape does not match ---
+  // --- model construction fails if layer's input extents does not match ---
   {
     static_assert(compile_fail_make_network<layer_input1_output2_t,
                                             layer_input3_output4_t>);
