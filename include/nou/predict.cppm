@@ -142,13 +142,14 @@ struct is_extents_match<T, RealType,
  * either of the following holds:
  * - If `Layer::input_extents` is rank 1 with extent 1:
  *   - `Input` is same as `Layer::real_type`
- * - If `Layer::input_extents` is rank 1 with extent $N \ge 1$:
+ * - If `Layer::input_extents` is rank 1 with extent \f$N \ge 1\f$:
  *   - `Input` models `std::ranges::input_range`
  *   - `std::ranges::range_value_t<Input>` is the same as `Layer::real_type`
  *   - If `Input` is a contiguous range (or more specifically, `std::span` is
  *     constructible from `Input`) and its extent is known at compile-time
  *     (e.g., `std::array`), its extent is `N`
- * - If `Layer::input_extents` is rank > 1 and outermost extent is $M \ge 1$:
+ * - If `Layer::input_extents` is rank > 1 and outermost extent is
+ *   \f$M \ge 1\f$:
  *   - `Input` models `std::ranges::input_range`
  *   - If `Input` is a contiguous range (or more specifically, `std::span` is
  *     constructible from `Input`) and its extent is known at compile-time

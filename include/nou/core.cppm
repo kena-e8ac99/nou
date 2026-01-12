@@ -200,9 +200,9 @@ struct is_sequential_network<std::tuple<Ts...>> : public std::true_type {};
  * - `T` is a specialization of `std::tuple` where each element models the
  *   `layer` concept
  * - `T` contains two or more layers
- * - For each adjacent pair of layers ($L_i$, $L_{i+1}$) in `T`:
- *   - $L_i::output\_extents == L_{i+1}::input\_extents$ (The output shape of a
- *     layer must exactly match the input shape of the next layer)
+ * - For each adjacent pair of layers (\f$L_i\f$, \f$L_{i+1}\f$) in `T`:
+ *   - \f$L_i::output\_extents == L_{i+1}::input\_extents\f$ (The output shape
+ *     of a layer must exactly match the input shape of the next layer)
  *
  * ### Example
  * ```cpp
@@ -303,16 +303,17 @@ using last_layer_t =
  *
  * @tparam First The type of the first layer. This type must model the `layer`
  * concept.
- * @tparam Second The type of the second layer or layer builder. Let $L_1$ be
- * `First`, `Second` must satisfy one of:
+ * @tparam Second The type of the second layer or layer builder. Let \f$L_1\f$
+ * be `First`, `Second` must satisfy one of:
  * - `Second` models the `layer` concept where `Second::input_extents ==
- *   $L_1$::output_extents`
- * - `Second` is a builder where `build<$L_1$::real_type>(second,
- *   $L_1$::output_extents)` results in a `layer` $L_2$ with `L_2::input_extents
- *   == $L_1$::output_extents`.
- * @tparam Rest The types of additional layers or builders. Each element $E_i$
- * must satisfy the same connectivity requirements with respect to its preceding
- * layer $L_{i-1}$.
+ *   \f$L_1\f$::output_extents`
+ * - `Second` is a builder where `build<\f$L_1\f$::real_type>(second,
+ *   \f$L_1\f$::output_extents)` results in a `layer` \f$L_2\f$ with
+ *   `\f$L_2\f$::input_extents == \f$L_1\f$::output_extents`
+ *
+ * @tparam Rest The types of additional layers or builders. Each element
+ * \f$E_i\f$ must satisfy the same connectivity requirements with respect to its
+ * preceding layer \f$L_{i-1}\f$.
  *
  * @param first The first layer of the network.
  * @param second The second layer or layer builder.
