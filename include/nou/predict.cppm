@@ -385,7 +385,7 @@ struct propagate_impl {
 
 inline namespace cpo {
 /**
- * Customization point object for propagating input through a layer.
+ * @brief Customization point object for propagating input through a layer.
  *
  * The name `propagate` denotes a customization point object (CPO) used to
  * perform the forward propagation of input data through a neural network layer.
