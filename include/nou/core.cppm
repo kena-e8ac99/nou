@@ -253,17 +253,17 @@ export template <class Network>
 using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
 
 /**
- * @brief Represents the type of the output layer in the given sequential
+ * @brief Represents the type of the last layer in the given sequential
  * network type.
  *
- * The type alias output_layer_t<Network> extracts the type of the last layer in
+ * The type alias last_layer_t<Network> extracts the type of the last layer in
  * Network if Network models the sequential_network concept. Otherwise, the
  * program is ill-formed.
  *
  * ### Example
  * ```cpp
  * using network = std::tuple<layer1, layer2, layer3>;
- * static_assert(std::same_as<nou::output_layer_t<network>, layer3>);
+ * static_assert(std::same_as<nou::last_layer_t<network>, layer3>);
  * ```
  *
  * @tparam Network The type of the sequential network. This type must model the
@@ -272,7 +272,7 @@ using first_layer_t = std::tuple_element_t<0, std::remove_cvref_t<Network>>;
  */
 export template <class Network>
   requires sequential_network<std::remove_cvref_t<Network>>
-using output_layer_t =
+using last_layer_t =
     std::tuple_element_t<std::tuple_size_v<std::remove_cvref_t<Network>> - 1,
                          std::remove_cvref_t<Network>>;
 
