@@ -10,3 +10,4 @@ endfunction()
 
 nou_test(ut_make_network)
 nou_test(ut_prediction)
+nou_test(ut_evaluate)
