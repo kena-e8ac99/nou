@@ -29,10 +29,26 @@ constexpr std::array<double, 1> input1{1.0};
 constexpr std::array<double, 2> invalid_input1{1.0, 2.0};
 constexpr std::array<double, 3> target1{2.0, 3.0, 4.0};
 constexpr std::array<double, 1> invalid_target1{2.0};
+constexpr double expected_loss1 = 0.5;
+constexpr auto loss_function1 = []([[maybe_unused]] auto&& output,
+                                   [[maybe_unused]] auto&& target) -> double {
+  return expected_loss1;
+};
+
 constexpr nou::layer auto layer_input1_output2 =
     layer<1, 2, double, std::array<double, 2>>{{2.0, 3.0}};
 constexpr nou::layer auto layer_input2_output3 =
     layer<2, 3, double, std::array<double, 3>>{{4.0, 5.0, 6.0}};
+constexpr nou::layer auto layer_input2_output3_errorable_with_error =
+    layer<2, 3, double,
+          std::expected<std::array<double, 3>, nou::computation_error>>{
+        std::expected<std::array<double, 3>, nou::computation_error>{
+            std::unexpect, nou::computation_error::invalid_input}};
+constexpr nou::layer auto layer_input2_output3_errorable_without_error =
+    layer<2, 3, double,
+          std::expected<std::array<double, 3>, nou::computation_error>>{
+        std::array<double, 3>{4.0, 5.0, 6.0}};
+
 }  // namespace
 
 auto main() -> int {
@@ -54,13 +70,9 @@ auto main() -> int {
   {
     constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2, layer_input2_output3);
-    constexpr double expected_loss_value = 42.0;
-    constexpr auto loss_value = nou::evaluate(
-        network, input1, target1,
-        []<class T, class U>(T&& /*output*/, U&& /*target*/) -> double {
-          return expected_loss_value;
-        });
-    static_assert(loss_value == expected_loss_value);
+    constexpr auto loss_value =
+        nou::evaluate(network, input1, target1, loss_function1);
+    static_assert(loss_value == expected_loss1);
   }
 
   // --- Test that compile fails if input shape mismatches ---
@@ -70,8 +82,7 @@ auto main() -> int {
 
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(invalid_input1),
-                              decltype(target1),
-                              decltype([](auto&&, auto&&) -> void {})>);
+                              decltype(target1), decltype(loss_function1)>);
   }
 
   // --- Test that compile fails if target shape mismatches ---
@@ -79,10 +90,9 @@ auto main() -> int {
     constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2, layer_input2_output3);
 
-    static_assert(
-        compile_fail_evaluate<decltype(network), decltype(input1),
-                              decltype(invalid_target1),
-                              decltype([](auto&&, auto&&) -> void {})>);
+    static_assert(compile_fail_evaluate<decltype(network), decltype(input1),
+                                        decltype(invalid_target1),
+                                        decltype(loss_function1)>);
   }
 
   // --- Test that compile fails if loss function call is invalid ---
@@ -95,6 +105,24 @@ auto main() -> int {
                               std::array<double, 3>,
                               // loss function with incorrect signature
                               decltype([](auto&&) -> void {})>);
+  }
+
+  // --- Test that evaluate returns error if prediction returns error ---
+  {
+    constexpr nou::sequential_network auto network = nou::make_network(
+        layer_input1_output2, layer_input2_output3_errorable_with_error);
+    static_assert(
+        nou::evaluate(network, input1, target1, loss_function1).error() ==
+        nou::computation_error::invalid_input);
+  }
+
+  // --- Test that evaluate works if prediction is errorable but no error ---
+  {
+    constexpr nou::sequential_network auto network = nou::make_network(
+        layer_input1_output2, layer_input2_output3_errorable_without_error);
+    static_assert(
+        nou::evaluate(network, input1, target1, loss_function1).value() ==
+        expected_loss1);
   }
 
   return 0;
