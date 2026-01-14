@@ -1,42 +1,38 @@
-#include <algorithm>
 #include <array>
+#include <expected>
 #include <mdspan>
 
 import nou;
 
 namespace {
-template <auto InputSize, auto OutputSize, class RealType>
+template <class... Ts>
+concept compile_fail_evaluate =
+    not requires { nou::evaluate(std::declval<Ts>()...); };
+
+template <auto InputSize, auto OutputSize, class RealType, class ValueType>
 struct layer {
   using real_type = RealType;
   static constexpr auto input_extents =
       std::extents<std::size_t, static_cast<std::size_t>(InputSize)>{};
   static constexpr auto output_extents =
       std::extents<std::size_t, static_cast<std::size_t>(OutputSize)>{};
-  std::array<real_type, InputSize>
-      passed_input{};  // NOLINT(misc-non-private-member-variables-in-classes)
-  std::array<real_type, OutputSize>
-      output{};  // NOLINT(misc-non-private-member-variables-in-classes)
-
-  template <std::ranges::input_range Input>
-  [[nodiscard]] constexpr auto propagate(Input&& input)
-      -> std::array<real_type, OutputSize> {
-    std::ranges::copy(std::forward<Input>(input), passed_input.begin());
-    return output;
-  }
+  ValueType output{};  // NOLINT(misc-non-private-member-variables-in-classes)
 
   template <std::ranges::input_range Input>
   [[nodiscard]] constexpr auto propagate([[maybe_unused]] Input&& input) const
-      -> std::array<real_type, OutputSize> {
+      -> ValueType {
     return output;
   }
 };
 
 constexpr std::array<double, 1> input1{1.0};
+constexpr std::array<double, 2> invalid_input1{1.0, 2.0};
 constexpr std::array<double, 3> target1{2.0, 3.0, 4.0};
+constexpr std::array<double, 1> invalid_target1{2.0};
 constexpr nou::layer auto layer_input1_output2 =
-    layer<1, 2, double>{.output = {2.0, 3.0}};
+    layer<1, 2, double, std::array<double, 2>>{{2.0, 3.0}};
 constexpr nou::layer auto layer_input2_output3 =
-    layer<2, 3, double>{.output = {4.0, 5.0, 6.0}};
+    layer<2, 3, double, std::array<double, 3>>{{4.0, 5.0, 6.0}};
 }  // namespace
 
 auto main() -> int {
@@ -66,5 +62,40 @@ auto main() -> int {
         });
     static_assert(loss_value == expected_loss_value);
   }
+
+  // --- Test that compile fails if input shape mismatches ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+
+    static_assert(
+        compile_fail_evaluate<decltype(network), decltype(invalid_input1),
+                              decltype(target1),
+                              decltype([](auto&&, auto&&) -> void {})>);
+  }
+
+  // --- Test that compile fails if target shape mismatches ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+
+    static_assert(
+        compile_fail_evaluate<decltype(network), decltype(input1),
+                              decltype(invalid_target1),
+                              decltype([](auto&&, auto&&) -> void {})>);
+  }
+
+  // --- Test that compile fails if loss function call is invalid ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+
+    static_assert(
+        compile_fail_evaluate<decltype(network), std::array<double, 1>,
+                              std::array<double, 3>,
+                              // loss function with incorrect signature
+                              decltype([](auto&&) -> void {})>);
+  }
+
   return 0;
 }

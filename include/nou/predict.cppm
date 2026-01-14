@@ -77,12 +77,12 @@ concept computation_errorable = requires {
 // Internal helper: Type trait to check if an input type matches layer extents.
 // Primary template: Default to false for non-matching types.
 template <class... Ts>
-struct is_extents_match : public std::false_type {};
+struct is_compatible_extents_with : public std::false_type {};
 
 // Base case: Match with single-element scalar (extent == 1).
 template <class T, class RealType, class IndexType, std::size_t Extent>
   requires(Extent == 1 && std::same_as<std::remove_cvref_t<T>, RealType>)
-struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
+struct is_compatible_extents_with<T, RealType, std::extents<IndexType, Extent>>
     : public std::true_type {};
 
 // Base case: Match non-span-compatible range with correct value type.
@@ -90,7 +90,7 @@ template <class T, class RealType, class IndexType, std::size_t Extent>
   requires(!requires { std::span{std::declval<T&>()}; } &&
            std::ranges::input_range<T> &&
            std::same_as<std::remove_cvref_t<typename T::value_type>, RealType>)
-struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
+struct is_compatible_extents_with<T, RealType, std::extents<IndexType, Extent>>
     : public std::true_type {};
 
 // Base case: Match span-compatible range with correct extent or dynamic extent
@@ -102,7 +102,7 @@ template <class T, class RealType, class IndexType, std::size_t Extent>
                    RealType> &&
       (decltype(std::span{std::declval<T&>()})::extent == Extent ||
        decltype(std::span{std::declval<T&>()})::extent == std::dynamic_extent))
-struct is_extents_match<T, RealType, std::extents<IndexType, Extent>>
+struct is_compatible_extents_with<T, RealType, std::extents<IndexType, Extent>>
     : public std::true_type {};
 
 // Recursive case: Match non-span-compatible range for multi-dimensional
@@ -111,9 +111,9 @@ template <class T, class RealType, class IndexType, std::size_t Extent,
           std::size_t... Extents>
   requires(!requires { std::span{std::declval<T&>()}; } &&
            std::ranges::input_range<T>)
-struct is_extents_match<T, RealType,
-                        std::extents<IndexType, Extent, Extents...>>
-    : public is_extents_match<
+struct is_compatible_extents_with<T, RealType,
+                                  std::extents<IndexType, Extent, Extents...>>
+    : public is_compatible_extents_with<
           std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
           std::extents<IndexType, Extents...>> {};
 
@@ -125,11 +125,59 @@ template <class T, class RealType, class IndexType, std::size_t Extent,
     std::span{std::declval<T&>()};
   } && (decltype(std::span{std::declval<T&>()})::extent == Extent ||
         decltype(std::span{std::declval<T&>()})::extent == std::dynamic_extent))
-struct is_extents_match<T, RealType,
-                        std::extents<IndexType, Extent, Extents...>>
-    : public is_extents_match<
+struct is_compatible_extents_with<T, RealType,
+                                  std::extents<IndexType, Extent, Extents...>>
+    : public is_compatible_extents_with<
           std::ranges::range_value_t<std::remove_cvref_t<T>>, RealType,
           std::extents<IndexType, Extents...>> {};
+
+/**
+ * @brief Specifies that a type is compatible with given extents and real type.
+ *
+ * The concept `compatible_extents_with<T, RealType, Extents>` specifies that
+ * `T` can be used as a container or value matching the shape described by
+ * `Extents` and the element type `RealType`.
+ *
+ * ### Semantic requirements
+ * `compatible_extents_with<T, RealType, Extents>` is modeled only if
+ * - If `Extents` is rank 1 with extent 1:
+ *   - `T` is same as `RealType`
+ * - If `Extents` is rank 1 with extent \f$N \ge 1\f$:
+ *   - `T` models `std::ranges::input_range`
+ *   - `std::ranges::range_value_t<T>` is the same as `RealType`
+ *   - If `T` is a contiguous range (or more specifically, `std::span` is
+ *     constructible from `T`) and its extent is known at compile-time
+ *     (e.g., `std::array`), its extent is `N`
+ * - If `Extents` is rank > 1:
+ *  - `T` models `std::ranges::input_range`
+ *  - If `T` is a contiguous range (or more specifically, `std::span` is
+ *    constructible from `T`) and its extent is known at compile-time
+ *    (e.g., `std::array`), its extent is equal to the outermost extent of
+ *    `Extents`
+ *  - The value type of `T` recursively models the same rules with respect to
+ *    `Extents` excluding the outermost extent
+ *
+ * ### Example
+ * ```cpp
+ * static_assert(nou::compatible_extents_with<double, double,
+ *               std::extents<std::size_t, 1>>); // scalar
+ * static_assert(nou::compatible_extents_with<std::array<float, 3>, float,
+ *               std::extents<std::size_t, 3>>); // fixed-size 1D
+ * static_assert(nou::compatible_extents_with<std::vector<float>, float,
+ *               std::extents<std::size_t, 3>>); // dynamic-size 1D
+ * static_assert(nou::compatible_extents_with<std::array<std::array<int, 2>, 4>,
+ *               int, std::extents<std::size_t, 4, 2>>); // fixed-size 2D
+ * static_assert(nou::compatible_extents_with<std::vector<std::array<int, 2>>,
+ *               int, std::extents<std::size_t, 4, 2>>); // dynamic-size 2D
+ * ```
+ *
+ * @tparam T The type to be checked.
+ * @tparam RealType The element type to be matched.
+ * @tparam Extents The extents type describing the shape to be matched.
+ */
+export template <class T, class RealType, class Extents>
+concept compatible_extents_with =
+    is_compatible_extents_with<T, RealType, Extents>::value;
 
 /**
  * @brief Specifies that a type is compatible as layer single input.
@@ -139,24 +187,11 @@ struct is_extents_match<T, RealType,
  * `input_extents` shape.
  *
  * ### Semantic requirements
+ * Let `L` be the type of `layer` after removing cv-ref qualifiers.
  * `input<Input, Layer>` is modeled only if `Layer` models the `layer` and
- * either of the following holds:
- * - If `Layer::input_extents` is rank 1 with extent 1:
- *   - `Input` is same as `Layer::real_type`
- * - If `Layer::input_extents` is rank 1 with extent \f$N \ge 1\f$:
- *   - `Input` models `std::ranges::input_range`
- *   - `std::ranges::range_value_t<Input>` is the same as `Layer::real_type`
- *   - If `Input` is a contiguous range (or more specifically, `std::span` is
- *     constructible from `Input`) and its extent is known at compile-time
- *     (e.g., `std::array`), its extent is `N`
- * - If `Layer::input_extents` is rank > 1 and outermost extent is
- *   \f$M \ge 1\f$:
- *   - `Input` models `std::ranges::input_range`
- *   - If `Input` is a contiguous range (or more specifically, `std::span` is
- *     constructible from `Input`) and its extent is known at compile-time
- *     (e.g., `std::array`), its extent is `M`
- *   - The value type of `Input` recursively satisfies the same rules with
- *     respect to `Layer::input_extents` excluding the outermost extent
+ * `compatible_extents_with<Input, L::real_type, L::input_extents>` is modeled.
+ *
+ * (See `compatible_extents_with` for detailed shape matching rules).
  *
  * ### Example
  * ```cpp
@@ -173,12 +208,12 @@ struct is_extents_match<T, RealType,
  * @tparam Layer The layer type to be checked.
  *
  * @see layer for the requirements on the layer type.
+ * @see compatible_extents_with for shape matching rules.
  */
 export template <class Input, class Layer>
-concept input =
-    is_extents_match<Input, typename std::remove_cvref_t<Layer>::real_type,
-                     decltype(auto(
-                         std::remove_cvref_t<Layer>::input_extents))>::value;
+concept input = compatible_extents_with<
+    Input, typename std::remove_cvref_t<Layer>::real_type,
+    decltype(auto(std::remove_cvref_t<Layer>::input_extents))>;
 
 /**
  * @brief Specifies that a type is compatible as batch layer input.
@@ -233,14 +268,17 @@ concept batch_input =
  * behavior.
  *
  * ### Semantic requirements
+ * Let `L` be the type of `layer` after removing cv-ref qualifiers.
  * `output<Output, Layer>` is modeled only if `Layer` models `layer` and either
  * of the following holds:
- * - If `Output` satisfies `computation_errorable<Output>`, `Output::value_type`
- *   matches the `Layer`'s `real_type` and `output_extents` shape
- * - If `Output` does not satisfy `computation_errorable<Output>`, `Output`
- *   itself matches the `Layer`'s `real_type` and `output_extents` shape
+ * - If `Output` satisfies `computation_errorable<Output>`, let
+ *   `Output::value_type` be `R`, then `compatible_extents_with<R, L::real_type,
+ *   L::output_extents>` is modeled
+ * - If `Output` does not satisfy `computation_errorable<Output>`,
+ *   `compatible_extents_with<Output, L::real_type, L::output_extents>` is
+ *   modeled
  *
- * (See `input` for detailed shape matching rules).
+ * (See `compatible_extents_with` for detailed shape matching rules).
  *
  * ### Example
  * ```cpp
@@ -260,16 +298,14 @@ concept batch_input =
  * @tparam Layer The layer type to be checked.
  *
  * @see computation_errorable for error-handling output types
- * @see input for shape matching rules
+ * @see compatible_extents_with for shape matching rules
  */
 export template <class Output, class Layer>
-concept output =
-    is_extents_match<std::conditional_t<computation_errorable<Output>,
-                                        typename Output::value_type, Output>,
-                     typename std::remove_cvref_t<Layer>::real_type,
-                     decltype(auto(
-                         std::remove_cvref_t<Layer>::output_extents))>::value;
-
+concept output = compatible_extents_with<
+    std::conditional_t<computation_errorable<Output>,
+                       typename Output::value_type, Output>,
+    typename std::remove_cvref_t<Layer>::real_type,
+    decltype(auto(std::remove_cvref_t<Layer>::output_extents))>;
 /**
  * @brief Specifies that a type is compatible as batch layer output.
  *
@@ -629,5 +665,16 @@ constexpr auto predict(Network&& network, BatchInput&& input) noexcept(
   return predict_step<0, Network, BatchInput>::call(
       std::forward<Network>(network), std::forward<BatchInput>(input));
 }
+
+export template <class Network, class Input>
+  requires sequential_network<std::remove_cvref_t<Network>> &&
+               (input<Input, first_layer_t<Network>> ||
+                batch_input<Input, first_layer_t<Network>>)
+using successful_predict_result_t = std::conditional_t<
+    computation_errorable<decltype(predict(std::declval<Network>(),
+                                           std::declval<Input>()))>,
+    typename decltype(predict(std::declval<Network>(),
+                              std::declval<Input>()))::value_type,
+    decltype(predict(std::declval<Network>(), std::declval<Input>()))>;
 
 }  // namespace nou
