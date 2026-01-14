@@ -1,6 +1,5 @@
 module;
 
-#include <concepts>
 #include <expected>
 #include <utility>
 
@@ -20,8 +19,9 @@ export template <class Network, input<first_layer_t<Network>> Input,
                predict(std::declval<Network>(), std::declval<Input>())
              } -> output<last_layer_t<Network>>;
            } &&
-           std::invocable<LossFunction,
-                          successful_predict_result_t<Network, Input>, Target>
+           mathematical_function<LossFunction,
+                                 successful_predict_result_t<Network, Input>,
+                                 Target>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
                         LossFunction loss_function) -> auto {

@@ -677,4 +677,32 @@ using successful_predict_result_t = std::conditional_t<
                               std::declval<Input>()))::value_type,
     decltype(predict(std::declval<Network>(), std::declval<Input>()))>;
 
+/**
+ * @brief Specifies that a type is a mathematical function.
+ *
+ * The concept `mathematical_function<T, Args...>` specifies that `T` is a
+ * mathematical function that can be invoked with arguments of types `Args...`
+ * and returns a non-void result.
+ *
+ * ### Syntactic requirements
+ * Let `R` be the result type of invoking `T` with arguments of types `Args...`.
+ * `mathematical_function<T, Args...>` is satisfied only if:
+ * - `T` is invocable with arguments of types `Args...`
+ * - `R` is not `void`
+ *
+ * ### Example
+ * ```cpp
+ * static_assert(
+ *     nou::mathematical_function<double(*)(double, double), double, double>);
+ * ```
+ *
+ * @tparam T The type to check.
+ * @tparam Args The argument types for invocation.
+ *
+ */
+export template <class T, class... Args>
+concept mathematical_function =
+    std::invocable<T, Args...> &&
+    !std::same_as<std::invoke_result_t<T, Args...>, void>;
+
 }  // namespace nou
