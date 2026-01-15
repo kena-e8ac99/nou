@@ -666,6 +666,26 @@ constexpr auto predict(Network&& network, BatchInput&& input) noexcept(
       std::forward<Network>(network), std::forward<BatchInput>(input));
 }
 
+/**
+ * @brief Obtains the successful prediction result type for given network and
+ * input.
+ *
+ * The type alias `successful_predict_result_t<Network, Input>` represents the
+ * type of the successful output from invoking `predict` with the specified
+ * `Network` and `Input` types, excluding any error handling wrappers.
+ *
+ * Let `R` be the return type of `predict(Network, Input)`.
+ * `successful_predict_result_t<Network, Input>` is equivalent to:
+ * - `R::value_type` if `R` satisfies `computation_errorable<R>`
+ * - `R` otherwise
+ *
+ * @tparam Network The type of the sequential network. This type must model
+ * `sequential_network`.
+ * @tparam Input The type of the input. This type must model either
+ * `input<first_layer_t<Network>>` or `batch_input<first_layer_t<Network>>`.
+ * @return The successful output type from `predict`, excluding error handling.
+ *
+ */
 export template <class Network, class Input>
   requires sequential_network<std::remove_cvref_t<Network>> &&
                (input<Input, first_layer_t<Network>> ||
