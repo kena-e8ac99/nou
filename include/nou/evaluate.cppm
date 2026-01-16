@@ -9,9 +9,9 @@ export import nou.predict;
 
 namespace nou {
 
-export template <class Network, input<first_layer_t<Network>> Input,
-                 class Target, class LossFunction>
-  requires compatible_extents_with<
+export template <class Network, class Input, class Target, class LossFunction>
+  requires input<Input, first_layer_t<Network>> &&
+           compatible_extents_with<
                Target, typename last_layer_t<Network>::real_type,
                decltype(auto(last_layer_t<Network>::output_extents))> &&
            requires {
