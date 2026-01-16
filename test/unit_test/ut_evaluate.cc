@@ -116,7 +116,8 @@ auto main() -> int {
         nou::computation_error::invalid_input);
   }
 
-  // --- Test that evaluate works if prediction is errorable but no error ---
+  // --- Test that evaluate returns correct loss if prediction is errorable
+  //     without error ---
   {
     constexpr nou::sequential_network auto network = nou::make_network(
         layer_input1_output2, layer_input2_output3_errorable_without_error);
