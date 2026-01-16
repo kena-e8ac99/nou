@@ -10,7 +10,8 @@ export import nou.predict;
 namespace nou {
 
 export template <class Network, class Input, class Target, class LossFunction>
-  requires input<Input, first_layer_t<Network>> &&
+  requires sequential_network<std::remove_cvref_t<Network>> &&
+           input<Input, first_layer_t<Network>> &&
            compatible_extents_with<
                Target, typename last_layer_t<Network>::real_type,
                decltype(auto(last_layer_t<Network>::output_extents))> &&
