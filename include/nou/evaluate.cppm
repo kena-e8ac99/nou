@@ -127,6 +127,31 @@ constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
                        std::move(loss_function), std::move(metrics)...);
 }
 
+export template <class Network, class Input, class Target, class... Metrics>
+  requires sequential_network<std::remove_cvref_t<Network>> &&
+           input<Input, first_layer_t<Network>> &&
+           compatible_extents_with<
+               Target, typename last_layer_t<Network>::real_type,
+               decltype(auto(last_layer_t<Network>::output_extents))> &&
+           requires {
+             {
+               predict(std::declval<Network>(), std::declval<Input>())
+             } -> output<last_layer_t<Network>>;
+           } &&
+           (mathematical_function<
+                Metrics, successful_predict_result_t<Network, Input>, Target> &&
+            ...) &&
+           (!differentiable_function<
+                Metrics, successful_predict_result_t<Network, Input>, Target> &&
+            ...)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
+                        Metrics... metrics) -> auto {
+  return evaluate_impl(std::forward<Network>(network),
+                       std::forward<Input>(input), std::forward<Target>(target),
+                       std::move(metrics)...);
+}
+
 export template <class Network, class BatchInput, class BatchTarget,
                  class LossFunction>
   requires sequential_network<std::remove_cvref_t<Network>> &&
