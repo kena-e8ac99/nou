@@ -153,7 +153,8 @@ constexpr nou::sequential_network auto network_errorable_without_error =
 }  // namespace
 
 auto main() -> int {  // NOLINT(bugprone-exception-escape)
-  // --- Test that evaluate forwards correct output and target to loss function
+  // --- Test that evaluate forwards prediction output and target to loss
+  //     function ---
   {
     constexpr auto loss_function_arguments = nou::evaluate(
         network, input1, target1, loss_function_return_arguments{});
@@ -162,27 +163,27 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     static_assert(std::get<1>(loss_function_arguments) == target1);
   }
 
-  // --- Test that evaluate returns correct loss function result ---
+  // --- Test that evaluate returns loss function result for single input ---
   {
     static_assert(nou::evaluate(network, input1, target1, loss_function1) ==
                   expected_loss1);
   }
 
-  // --- Test that compile fails if input shape mismatches ---
+  // --- Test that evaluate rejects input with mismatched shape ---
   {
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(invalid_input1),
                               decltype(target1), decltype(loss_function1)>);
   }
 
-  // --- Test that compile fails if target shape mismatches ---
+  // --- Test that evaluate rejects target with mismatched shape ---
   {
     static_assert(compile_fail_evaluate<decltype(network), decltype(input1),
                                         decltype(invalid_target1),
                                         decltype(loss_function1)>);
   }
 
-  // --- Test that compile fails if loss function call is invalid ---
+  // --- Test that evaluate rejects loss function with invalid signature ---
   {
     static_assert(
         compile_fail_evaluate<decltype(network), std::array<double, 1>,
@@ -191,28 +192,28 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
                               decltype([](auto&&) -> void {})>);
   }
 
-  // --- Test that evaluate returns error if prediction returns error ---
+  // --- Test that evaluate propagates error from prediction ---
   {
     static_assert(nou::evaluate(network_errorable_with_error, input1, target1,
                                 loss_function1)
                       .error() == nou::computation_error::invalid_input);
   }
 
-  // --- Test that evaluate returns correct loss if prediction is errorable
-  //     without error ---
+  // --- Test that evaluate returns loss when prediction is errorable but
+  //     succeeds ---
   {
     static_assert(nou::evaluate(network_errorable_without_error, input1,
                                 target1, loss_function1)
                       .value() == expected_loss1);
   }
 
-  // --- Test that evaluate batches correctly ---
+  // --- Test that evaluate computes loss over batch input ---
   {
     static_assert(nou::evaluate(network, batch_input1, batch_target1,
                                 loss_function1) == expected_loss1);
   }
 
-  // --- Test that compile fails if batch input shape mismatches ---
+  // --- Test that evaluate rejects batch input with mismatched shape ---
   {
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(invalid_input1),
@@ -220,7 +221,7 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
                               decltype(loss_function1)>);
   }
 
-  // --- Test that compile fails if batch target shape mismatches ---
+  // --- Test that evaluate rejects batch target with mismatched shape ---
   {
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(batch_input1),
@@ -228,7 +229,8 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
                               decltype(loss_function1)>);
   }
 
-  // --- Test that compile fails if loss function call is invalid for batch ---
+  // --- Test that evaluate rejects loss function with invalid signature for
+  //     batch ---
   {
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(batch_input1),
@@ -237,34 +239,32 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
                               decltype([](auto&&) -> void {})>);
   }
 
-  // --- Test that evaluate returns error if batch prediction returns error ---
+  // --- Test that evaluate propagates error from batch prediction ---
   {
     static_assert(nou::evaluate(network_errorable_with_error, batch_input1,
                                 batch_target1, loss_function1)
                       .error() == nou::computation_error::invalid_input);
   }
 
-  // --- Test that evaluate returns correct loss if batch prediction is
-  //     errorable without error ---
+  // --- Test that evaluate returns loss when batch prediction is errorable but
+  //     succeeds ---
   {
     static_assert(nou::evaluate(network_errorable_without_error, batch_input1,
                                 batch_target1, loss_function1)
                       .value() == expected_loss1);
   }
 
-  // --- Test that evaluate works with loss function is not compatible with
-  //     batch inputs but compatible with single inputs in compile time ---
+  // --- Test that evaluate falls back to element-wise invocation when loss
+  //     function accepts only single inputs at compile time ---
   {
     static_assert(nou::evaluate(network, batch_input1, batch_target1,
                                 loss_function_not_compatible_with_batch_3) ==
                   expected_loss1);
   }
 
-  // --- Test that evaluate works with loss function that is not compatible with
-  //     batch inputs but compatible with single inputs in runtime ---
-  //     (This test uses assert instead of static_assert to verify runtime
-  //      behavior. The result should be the same as the previous compile-time
-  //      test.)
+  // --- Test that evaluate falls back to element-wise invocation when immutable
+  //     loss function (called parallel unsequenced) accepts only single inputs
+  //     at runtime ---
   {
     // NOLINTNEXTLINE
     assert(nou::evaluate(network, batch_input1, batch_target1,
@@ -272,9 +272,8 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
            expected_loss1);
   }
 
-  // --- Test that evaluate works with mutable loss function that is not
-  //     compatible with batch inputs but compatible with single inputs in
-  //     compile time ---
+  // --- Test that evaluate falls back to element-wise invocation when mutable
+  //     loss function accepts only single inputs at compile time ---
   {
     static_assert(
         nou::evaluate(network, batch_input1, batch_target1,
@@ -282,12 +281,9 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
         expected_loss1);
   }
 
-  // --- Test that evaluate works with mutable loss function that is not
-  //     compatible with batch inputs but compatible with single inputs in
+  // --- Test that evaluate falls back to element-wise invocation when mutable
+  //     loss function (called sequential) accepts only single inputs at
   //     runtime ---
-  //     (This test uses assert instead of static_assert to verify runtime
-  //      behavior. The result should be the same as the previous compile-time
-  //      test.)
   {
     auto loss_function = loss_function_not_compatible_with_batch_mutable_3;
     // NOLINTNEXTLINE
@@ -295,7 +291,7 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
            expected_loss1);
   }
 
-  // --- Test that evaluate works with empty batch input/target ---
+  // --- Test that evaluate handles empty batch input and target ---
   {
     constexpr std::array<std::array<double, 1>, 0> empty_batch_input{};
     constexpr std::array<std::array<double, 3>, 0> empty_batch_target{};
@@ -303,7 +299,8 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
                                 loss_function1) == expected_loss1);
   }
 
-  // --- Test that evaluate works with 1 loss function and 1 metrics ---
+  // --- Test that evaluate returns tuple of loss and metrics when both are
+  //     provided ---
   {
     constexpr auto result =
         nou::evaluate(network, input1, target1, loss_function1, metrics1);
@@ -311,7 +308,7 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     static_assert(std::get<1>(result) == expected_metrics1);
   }
 
-  // --- Test that evaluate works with 1 loss function and multiple metrics ---
+  // --- Test that evaluate returns tuple of loss and multiple metrics ---
   {
     constexpr auto result = nou::evaluate(network, input1, target1,
                                           loss_function1, metrics1, metrics1);
@@ -320,13 +317,15 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     static_assert(std::get<2>(result) == expected_metrics1);
   }
 
-  // --- Test that evaluate works with no loss function and 1 metrics ---
+  // --- Test that evaluate returns metrics directly when no loss function is
+  //     provided ---
   {
     constexpr auto result = nou::evaluate(network, input1, target1, metrics1);
     static_assert(result == expected_metrics1);
   }
 
-  // --- Test that evaluate works with no loss function and multiple metrics ---
+  // --- Test that evaluate returns tuple of multiple metrics when no loss
+  //     function is provided ---
   {
     constexpr auto result =
         nou::evaluate(network, input1, target1, metrics1, metrics1);
@@ -334,8 +333,8 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     static_assert(std::get<1>(result) == expected_metrics1);
   }
 
-  // --- Test that evaluate works with 1 loss function and 1 metrics in
-  //     batch ---
+  // --- Test that evaluate returns tuple of loss and metrics for batch
+  //     input ---
   {
     constexpr auto result = nou::evaluate(network, batch_input1, batch_target1,
                                           loss_function1, metrics1);
@@ -343,8 +342,8 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     static_assert(std::get<1>(result) == expected_metrics1);
   }
 
-  // --- Test that evaluate works with 1 loss function and multiple metrics in
-  //     batch ---
+  // --- Test that evaluate returns tuple of loss and multiple metrics for batch
+  //     input ---
   {
     constexpr auto result = nou::evaluate(network, batch_input1, batch_target1,
                                           loss_function1, metrics1, metrics1);
@@ -353,16 +352,16 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     static_assert(std::get<2>(result) == expected_metrics1);
   }
 
-  // --- Test that evaluate works with no loss function and 1 metrics in batch
-  // ---
+  // --- Test that evaluate returns metrics directly for batch input when no
+  //     loss function is provided ---
   {
     constexpr auto result =
         nou::evaluate(network, batch_input1, batch_target1, metrics1);
     static_assert(result == expected_metrics1);
   }
 
-  // --- Test that evaluate works with no loss function and multiple metrics in
-  //     batch ---
+  // --- Test that evaluate returns tuple of multiple metrics for batch input
+  //     when no loss function is provided ---
   {
     constexpr auto result =
         nou::evaluate(network, batch_input1, batch_target1, metrics1, metrics1);
@@ -370,7 +369,7 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     static_assert(std::get<1>(result) == expected_metrics1);
   }
 
-  // --- Test that compile fails if metrics function call is invalid ---
+  // --- Test that evaluate rejects metric function with invalid signature ---
   {
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(input1),
@@ -379,8 +378,8 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
                               decltype([](auto&&) -> void {})>);
   }
 
-  // --- Test that compile fails if metrics function call is invalid in
-  //     batch ---
+  // --- Test that evaluate rejects metric function with invalid signature for
+  //     batch input ---
   {
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(batch_input1),
@@ -389,14 +388,14 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
                               decltype([](auto&&) -> void {})>);
   }
 
-  // --- Test that compile fails if no loss function and no metrics are
+  // --- Test that evaluate rejects if no loss function and no metrics are
   //     provided ---
   {
     static_assert(compile_fail_evaluate<decltype(network), decltype(input1),
                                         decltype(target1)>);
   }
 
-  // --- Test that compile fails if no loss function and no metrics are
+  // --- Test that evaluate rejects if no loss function and no metrics are
   //     provided in batch ---
   {
     static_assert(
