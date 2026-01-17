@@ -195,4 +195,46 @@ constexpr auto evaluate(Network&& network, BatchInput&& input,
                        std::move(loss_function), std::move(metrics)...);
 }
 
+export template <class Network, class BatchInput, class BatchTarget,
+                 class... Metrics>
+  requires sequential_network<std::remove_cvref_t<Network>> &&
+           batch_input<BatchInput, first_layer_t<Network>> &&
+           std::ranges::input_range<BatchTarget> &&
+           compatible_extents_with<
+               std::ranges::range_value_t<std::remove_cvref_t<BatchTarget>>,
+               typename last_layer_t<Network>::real_type,
+               decltype(auto(last_layer_t<Network>::output_extents))> &&
+           requires {
+             {
+               predict(std::declval<Network>(), std::declval<BatchInput>())
+             } -> batch_output<last_layer_t<Network>>;
+           } &&
+           ((mathematical_function<
+                 Metrics, successful_predict_result_t<Network, BatchInput>,
+                 BatchTarget> ||
+             mathematical_function<
+                 Metrics,
+                 std::ranges::range_value_t<
+                     successful_predict_result_t<Network, BatchInput>>,
+                 std::ranges::range_value_t<
+                     std::remove_cvref_t<BatchTarget>>>) &&
+            ...) &&
+           (!(differentiable_function<
+                  Metrics, successful_predict_result_t<Network, BatchInput>,
+                  BatchTarget> ||
+              differentiable_function<
+                  Metrics,
+                  std::ranges::range_value_t<
+                      successful_predict_result_t<Network, BatchInput>>,
+                  std::ranges::range_value_t<
+                      std::remove_cvref_t<BatchTarget>>>) &&
+            ...)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+constexpr auto evaluate(Network&& network, BatchInput&& input,
+                        BatchTarget&& target, Metrics... metrics) -> auto {
+  return evaluate_impl(
+      std::forward<Network>(network), std::forward<BatchInput>(input),
+      std::forward<BatchTarget>(target), std::move(metrics)...);
+}
+
 }  // namespace nou

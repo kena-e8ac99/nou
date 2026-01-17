@@ -400,5 +400,26 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     static_assert(std::get<2>(result) == expected_metrics1);
   }
 
+  // --- Test that evaluate works with no loss function and 1 metrics in batch
+  // ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    constexpr auto result =
+        nou::evaluate(network, batch_input1, batch_target1, metrics1);
+    static_assert(result == expected_metrics1);
+  }
+
+  // --- Test that evaluate works with no loss function and multiple metrics in
+  //     batch ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    constexpr auto result =
+        nou::evaluate(network, batch_input1, batch_target1, metrics1, metrics1);
+    static_assert(std::get<0>(result) == expected_metrics1);
+    static_assert(std::get<1>(result) == expected_metrics1);
+  }
+
   return 0;
 }
