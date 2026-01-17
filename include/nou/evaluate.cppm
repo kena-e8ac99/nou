@@ -72,9 +72,8 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
                               std::forward<Target>(target),
                               std::move(functions)...);
   } else {
-    return std::tuple{call_loss_function(std::forward<Output>(output),
-                                         std::forward<Target>(target),
-                                         std::move(functions))...};
+    return std::tuple{
+        call_loss_function(output, target, std::move(functions))...};
   }
 }
 
