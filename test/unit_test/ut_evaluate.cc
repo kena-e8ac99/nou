@@ -145,7 +145,7 @@ auto main() -> int {
   {
     constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2, layer_input2_output3);
-    [[maybe_unused]] constexpr auto loss_function_arguments = nou::evaluate(
+    constexpr auto loss_function_arguments = nou::evaluate(
         network, input1, target1, loss_function_return_arguments{});
     static_assert(std::get<0>(loss_function_arguments) ==
                   nou::predict(network, input1));
