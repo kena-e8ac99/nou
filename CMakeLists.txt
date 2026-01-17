@@ -18,7 +18,7 @@ target_sources(nou
       include/nou/nou.cppm)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  target_compile_options(nou PRIVATE -stdlib=libc++)
+  target_compile_options(nou PRIVATE -stdlib=libc++ PRIVATE -fexperimental-library)
   target_link_options(nou PRIVATE -stdlib=libc++ -lc++abi)
 endif()
 
