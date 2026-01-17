@@ -136,7 +136,7 @@ constexpr nou::layer auto layer_input2_output3_errorable_without_error =
 
 }  // namespace
 
-auto main() -> int {
+auto main() -> int {  // NOLINT(bugprone-exception-escape)
   // --- Test that evaluate forwards correct output and target to loss function
   {
     constexpr nou::sequential_network auto network =
