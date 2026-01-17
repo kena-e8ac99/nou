@@ -140,13 +140,21 @@ constexpr auto metrics1 = []([[maybe_unused]] const auto& output,
   return expected_metrics1;
 };
 
+constexpr nou::sequential_network auto network =
+    nou::make_network(layer_input1_output2, layer_input2_output3);
+
+constexpr nou::sequential_network auto network_errorable_with_error =
+    nou::make_network(layer_input1_output2,
+                      layer_input2_output3_errorable_with_error);
+
+constexpr nou::sequential_network auto network_errorable_without_error =
+    nou::make_network(layer_input1_output2,
+                      layer_input2_output3_errorable_without_error);
 }  // namespace
 
 auto main() -> int {  // NOLINT(bugprone-exception-escape)
   // --- Test that evaluate forwards correct output and target to loss function
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto loss_function_arguments = nou::evaluate(
         network, input1, target1, loss_function_return_arguments{});
     static_assert(std::get<0>(loss_function_arguments) ==
@@ -156,18 +164,12 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that evaluate returns correct loss function result ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
-    constexpr auto loss_value =
-        nou::evaluate(network, input1, target1, loss_function1);
-    static_assert(loss_value == expected_loss1);
+    static_assert(nou::evaluate(network, input1, target1, loss_function1) ==
+                  expected_loss1);
   }
 
   // --- Test that compile fails if input shape mismatches ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
-
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(invalid_input1),
                               decltype(target1), decltype(loss_function1)>);
@@ -175,9 +177,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that compile fails if target shape mismatches ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
-
     static_assert(compile_fail_evaluate<decltype(network), decltype(input1),
                                         decltype(invalid_target1),
                                         decltype(loss_function1)>);
@@ -185,9 +184,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that compile fails if loss function call is invalid ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
-
     static_assert(
         compile_fail_evaluate<decltype(network), std::array<double, 1>,
                               std::array<double, 3>,
@@ -197,37 +193,27 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that evaluate returns error if prediction returns error ---
   {
-    constexpr nou::sequential_network auto network = nou::make_network(
-        layer_input1_output2, layer_input2_output3_errorable_with_error);
-    static_assert(
-        nou::evaluate(network, input1, target1, loss_function1).error() ==
-        nou::computation_error::invalid_input);
+    static_assert(nou::evaluate(network_errorable_with_error, input1, target1,
+                                loss_function1)
+                      .error() == nou::computation_error::invalid_input);
   }
 
   // --- Test that evaluate returns correct loss if prediction is errorable
   //     without error ---
   {
-    constexpr nou::sequential_network auto network = nou::make_network(
-        layer_input1_output2, layer_input2_output3_errorable_without_error);
-    static_assert(
-        nou::evaluate(network, input1, target1, loss_function1).value() ==
-        expected_loss1);
+    static_assert(nou::evaluate(network_errorable_without_error, input1,
+                                target1, loss_function1)
+                      .value() == expected_loss1);
   }
 
   // --- Test that evaluate batches correctly ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
-    constexpr auto batch_loss =
-        nou::evaluate(network, batch_input1, batch_target1, loss_function1);
-    static_assert(batch_loss == expected_loss1);
+    static_assert(nou::evaluate(network, batch_input1, batch_target1,
+                                loss_function1) == expected_loss1);
   }
 
   // --- Test that compile fails if batch input shape mismatches ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
-
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(invalid_input1),
                               decltype(batch_target1),
@@ -236,9 +222,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that compile fails if batch target shape mismatches ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
-
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(batch_input1),
                               decltype(invalid_target1),
@@ -247,9 +230,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that compile fails if loss function call is invalid for batch ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
-
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(batch_input1),
                               decltype(batch_target1),
@@ -259,28 +239,22 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that evaluate returns error if batch prediction returns error ---
   {
-    constexpr nou::sequential_network auto network = nou::make_network(
-        layer_input1_output2, layer_input2_output3_errorable_with_error);
-    static_assert(
-        nou::evaluate(network, batch_input1, batch_target1, loss_function1)
-            .error() == nou::computation_error::invalid_input);
+    static_assert(nou::evaluate(network_errorable_with_error, batch_input1,
+                                batch_target1, loss_function1)
+                      .error() == nou::computation_error::invalid_input);
   }
 
   // --- Test that evaluate returns correct loss if batch prediction is
   //     errorable without error ---
   {
-    constexpr nou::sequential_network auto network = nou::make_network(
-        layer_input1_output2, layer_input2_output3_errorable_without_error);
-    static_assert(
-        nou::evaluate(network, batch_input1, batch_target1, loss_function1)
-            .value() == expected_loss1);
+    static_assert(nou::evaluate(network_errorable_without_error, batch_input1,
+                                batch_target1, loss_function1)
+                      .value() == expected_loss1);
   }
 
   // --- Test that evaluate works with loss function is not compatible with
   //     batch inputs but compatible with single inputs in compile time ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     static_assert(nou::evaluate(network, batch_input1, batch_target1,
                                 loss_function_not_compatible_with_batch_3) ==
                   expected_loss1);
@@ -292,8 +266,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   //      behavior. The result should be the same as the previous compile-time
   //      test.)
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     // NOLINTNEXTLINE
     assert(nou::evaluate(network, batch_input1, batch_target1,
                          loss_function_not_compatible_with_batch_3) ==
@@ -304,8 +276,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   //     compatible with batch inputs but compatible with single inputs in
   //     compile time ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     static_assert(
         nou::evaluate(network, batch_input1, batch_target1,
                       loss_function_not_compatible_with_batch_mutable_3) ==
@@ -319,10 +289,7 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   //      behavior. The result should be the same as the previous compile-time
   //      test.)
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     auto loss_function = loss_function_not_compatible_with_batch_mutable_3;
-    nou::evaluate(network, batch_input1, batch_target1, loss_function);
     // NOLINTNEXTLINE
     assert(nou::evaluate(network, batch_input1, batch_target1, loss_function) ==
            expected_loss1);
@@ -330,8 +297,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that evaluate works with empty batch input/target ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr std::array<std::array<double, 1>, 0> empty_batch_input{};
     constexpr std::array<std::array<double, 3>, 0> empty_batch_target{};
     static_assert(nou::evaluate(network, empty_batch_input, empty_batch_target,
@@ -340,8 +305,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that evaluate works with 1 loss function and 1 metrics ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto result =
         nou::evaluate(network, input1, target1, loss_function1, metrics1);
     static_assert(std::get<0>(result) == expected_loss1);
@@ -350,8 +313,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that evaluate works with 1 loss function and multiple metrics ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto result = nou::evaluate(network, input1, target1,
                                           loss_function1, metrics1, metrics1);
     static_assert(std::get<0>(result) == expected_loss1);
@@ -361,16 +322,12 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that evaluate works with no loss function and 1 metrics ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto result = nou::evaluate(network, input1, target1, metrics1);
     static_assert(result == expected_metrics1);
   }
 
   // --- Test that evaluate works with no loss function and multiple metrics ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto result =
         nou::evaluate(network, input1, target1, metrics1, metrics1);
     static_assert(std::get<0>(result) == expected_metrics1);
@@ -380,8 +337,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   // --- Test that evaluate works with 1 loss function and 1 metrics in
   //     batch ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto result = nou::evaluate(network, batch_input1, batch_target1,
                                           loss_function1, metrics1);
     static_assert(std::get<0>(result) == expected_loss1);
@@ -391,8 +346,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   // --- Test that evaluate works with 1 loss function and multiple metrics in
   //     batch ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto result = nou::evaluate(network, batch_input1, batch_target1,
                                           loss_function1, metrics1, metrics1);
     static_assert(std::get<0>(result) == expected_loss1);
@@ -403,8 +356,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   // --- Test that evaluate works with no loss function and 1 metrics in batch
   // ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto result =
         nou::evaluate(network, batch_input1, batch_target1, metrics1);
     static_assert(result == expected_metrics1);
@@ -413,8 +364,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   // --- Test that evaluate works with no loss function and multiple metrics in
   //     batch ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto result =
         nou::evaluate(network, batch_input1, batch_target1, metrics1, metrics1);
     static_assert(std::get<0>(result) == expected_metrics1);
@@ -423,8 +372,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
 
   // --- Test that compile fails if metrics function call is invalid ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(input1),
                               decltype(target1), decltype(loss_function1),
@@ -435,8 +382,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   // --- Test that compile fails if metrics function call is invalid in
   //     batch ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(batch_input1),
                               decltype(batch_target1), decltype(loss_function1),
@@ -447,8 +392,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   // --- Test that compile fails if no loss function and no metrics are
   //     provided ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     static_assert(compile_fail_evaluate<decltype(network), decltype(input1),
                                         decltype(target1)>);
   }
@@ -456,8 +399,6 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
   // --- Test that compile fails if no loss function and no metrics are
   //     provided in batch ---
   {
-    constexpr nou::sequential_network auto network =
-        nou::make_network(layer_input1_output2, layer_input2_output3);
     static_assert(
         compile_fail_evaluate<decltype(network), decltype(batch_input1),
                               decltype(batch_target1)>);
