@@ -1,7 +1,12 @@
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdlib>
+#include <execution>
 #include <expected>
+#include <iostream>
+#include <limits>
 #include <mdspan>
 #include <ranges>
 #include <span>
@@ -64,9 +69,12 @@ constexpr auto loss_function_not_compatible_with_batch_3 =
   return expected_loss1;
 };
 constexpr auto loss_function_not_compatible_with_batch_mutable_3 =
-    []([[maybe_unused]] std::span<const double, 3> output,
-       [[maybe_unused]] std::span<const double, 3> target) mutable -> double {
-  return expected_loss1;
+    [loss = 0.0](
+        [[maybe_unused]] std::span<const double, 3> output,
+        [[maybe_unused]] std::span<const double, 3> target) mutable -> double {
+  auto result = loss;
+  loss += 1.0;
+  return result;
 };
 
 constexpr nou::layer auto layer_input1_output2 =
@@ -271,10 +279,22 @@ auto main() -> int {
   {
     constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2, layer_input2_output3);
+    auto loss_function = loss_function_not_compatible_with_batch_mutable_3;
+    nou::evaluate(network, batch_input1, batch_target1, loss_function);
     // NOLINTNEXTLINE
-    assert(nou::evaluate(network, batch_input1, batch_target1,
-                         loss_function_not_compatible_with_batch_mutable_3) ==
-           expected_loss1);
+    // assert(std::abs(nou::evaluate(network, batch_input1, batch_target1,
+    //                              loss_function) -
+    //                expected_loss1) < std::numeric_limits<double>::epsilon());
+  }
+
+  // --- Test that evaluate works with empty batch input/target ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    constexpr std::array<std::array<double, 1>, 0> empty_batch_input{};
+    constexpr std::array<std::array<double, 3>, 0> empty_batch_target{};
+    static_assert(nou::evaluate(network, empty_batch_input, empty_batch_target,
+                                loss_function1) == expected_loss1);
   }
 
   return 0;

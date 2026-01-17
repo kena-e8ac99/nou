@@ -24,7 +24,7 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
     using value_type = decltype(loss_function(
         std::ranges::range_value_t<std::remove_cvref_t<Output>>{},
         std::ranges::range_value_t<std::remove_cvref_t<Target>>{}));
-    value_type total_loss{};
+    value_type total_loss{0};
 
     if !consteval {
       if constexpr (std::ranges::forward_range<Output> &&
@@ -36,24 +36,31 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
                             std::remove_cvref_t<Target>>>) {
         total_loss = std::transform_reduce(
             std::execution::par_unseq, std::ranges::begin(output),
-            std::ranges::end(output), std::ranges::begin(target), value_type{},
+            std::ranges::end(output), std::ranges::begin(target), value_type{0},
             std::plus<>{}, [&](auto&& output, auto&& target) -> value_type {
               return loss_function(std::forward<decltype(output)>(output),
                                    std::forward<decltype(target)>(target));
             });
-        return total_loss / static_cast<value_type>(std::ranges::size(output));
+
+        if (auto size = std::ranges::size(output); size != 0) {
+          return total_loss / static_cast<value_type>(size);
+        }
+        return total_loss;
       }
-      std::unreachable();
     }
 
     total_loss = std::transform_reduce(
         std::ranges::begin(output), std::ranges::end(output),
-        std::ranges::begin(target), value_type{}, std::plus<>{},
-        [&loss_function](auto&& output, auto&& target) -> value_type {
+        std::ranges::begin(target), value_type{0}, std::plus<>{},
+        [&](auto&& output, auto&& target) -> value_type {
           return loss_function(std::forward<decltype(output)>(output),
                                std::forward<decltype(target)>(target));
         });
-    return total_loss / static_cast<value_type>(std::ranges::size(output));
+
+    if (auto size = std::ranges::size(output); size != 0) {
+      return total_loss / static_cast<value_type>(size);
+    }
+    return total_loss;
   }
 }
 
