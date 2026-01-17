@@ -14,10 +14,11 @@ target_sources(nou
     FILE_SET CXX_MODULES FILES
       include/nou/core.cppm
       include/nou/predict.cppm
+      include/nou/evaluate.cppm
       include/nou/nou.cppm)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  target_compile_options(nou PRIVATE -stdlib=libc++)
+  target_compile_options(nou PRIVATE -stdlib=libc++ -fexperimental-library)
   target_link_options(nou PRIVATE -stdlib=libc++ -lc++abi)
 endif()
 

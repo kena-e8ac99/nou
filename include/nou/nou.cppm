@@ -2,4 +2,4 @@ module;
 
 export module nou;
 
-export import nou.predict;
+export import nou.evaluate;
