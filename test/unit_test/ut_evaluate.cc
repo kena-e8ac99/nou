@@ -58,24 +58,71 @@ constexpr std::array<double, 3> target1{2.0, 3.0, 4.0};
     std::array<double, 3>{2.0, 3.0, 4.0}, std::array<double, 3>{3.0, 4.0, 5.0}};
 constexpr std::array<double, 1> invalid_target1{2.0};
 
+struct loss_function_return_arguments {
+  template <class T, class U>
+  constexpr auto operator()(T&& output, U&& target) const -> auto {
+    return std::tuple{std::forward<T>(output), std::forward<U>(target)};
+  }
+  template <class T, class U>
+  constexpr auto df([[maybe_unused]] T&& output,
+                    [[maybe_unused]] U&& target) const -> double {
+    return 1.0;
+  }
+};
+
 constexpr double expected_loss1 = 0.5;
-constexpr auto loss_function1 = []([[maybe_unused]] auto&& output,
-                                   [[maybe_unused]] auto&& target) -> double {
-  return expected_loss1;
+struct loss_function {
+  template <class T, class U>
+  constexpr auto operator()([[maybe_unused]] T&& output,
+                            [[maybe_unused]] U&& target) const -> double {
+    return expected_loss1;
+  }
+
+  template <class T, class U>
+  constexpr auto df([[maybe_unused]] T&& output,
+                    [[maybe_unused]] U&& target) const -> double {
+    return 1.0;
+  }
+};
+constexpr auto loss_function1 = loss_function{};
+
+template <auto N>
+struct loss_function_not_compatible_with_batch {
+  constexpr auto operator()(
+      [[maybe_unused]] std::span<const double, N> output,
+      [[maybe_unused]] std::span<const double, N> target) const -> double {
+    return expected_loss1;
+  }
+
+  template <class T, class U>
+  constexpr auto df([[maybe_unused]] T&& output,
+                    [[maybe_unused]] U&& target) const -> double {
+    return 1.0;
+  }
 };
 constexpr auto loss_function_not_compatible_with_batch_3 =
-    []([[maybe_unused]] std::span<const double, 3> output,
-       [[maybe_unused]] std::span<const double, 3> target) -> double {
-  return expected_loss1;
+    loss_function_not_compatible_with_batch<3>{};
+
+template <auto N>
+struct loss_function_not_compatible_with_batch_mutable {
+  double loss = 0.0;  // NOLINT(misc-non-private-member-variables-in-classes)
+
+  constexpr auto operator()([[maybe_unused]] std::span<const double, N> output,
+                            [[maybe_unused]] std::span<const double, N> target)
+      -> double {
+    auto result = loss;
+    loss += 1.0;
+    return result;
+  }
+
+  template <class T, class U>
+  constexpr auto df([[maybe_unused]] T&& output,
+                    [[maybe_unused]] U&& target) const -> double {
+    return 1.0;
+  }
 };
 constexpr auto loss_function_not_compatible_with_batch_mutable_3 =
-    [loss = 0.0](
-        [[maybe_unused]] std::span<const double, 3> output,
-        [[maybe_unused]] std::span<const double, 3> target) mutable -> double {
-  auto result = loss;
-  loss += 1.0;
-  return result;
-};
+    loss_function_not_compatible_with_batch_mutable<3>{};
 
 constexpr nou::layer auto layer_input1_output2 =
     layer<1, 2, double, std::array<double, 2>>{{2.0, 3.0}};
@@ -99,10 +146,7 @@ auto main() -> int {
     constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2, layer_input2_output3);
     [[maybe_unused]] constexpr auto loss_function_arguments = nou::evaluate(
-        network, input1, target1,
-        []<class T, class U>(T&& output, U&& target) -> auto {
-          return std::tuple{std::forward<T>(output), std::forward<U>(target)};
-        });
+        network, input1, target1, loss_function_return_arguments{});
     static_assert(std::get<0>(loss_function_arguments) ==
                   nou::predict(network, input1));
     static_assert(std::get<1>(loss_function_arguments) == target1);
@@ -173,11 +217,7 @@ auto main() -> int {
     constexpr nou::sequential_network auto network =
         nou::make_network(layer_input1_output2, layer_input2_output3);
     constexpr auto batch_loss =
-        nou::evaluate(network, batch_input1, batch_target1,
-                      []([[maybe_unused]] auto&& outputs,
-                         [[maybe_unused]] auto&& targets) -> double {
-                        return expected_loss1;
-                      });
+        nou::evaluate(network, batch_input1, batch_target1, loss_function1);
     static_assert(batch_loss == expected_loss1);
   }
 

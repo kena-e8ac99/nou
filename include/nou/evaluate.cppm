@@ -96,9 +96,9 @@ export template <class Network, class Input, class Target, class LossFunction>
                predict(std::declval<Network>(), std::declval<Input>())
              } -> output<last_layer_t<Network>>;
            } &&
-           mathematical_function<LossFunction,
-                                 successful_predict_result_t<Network, Input>,
-                                 Target>
+           differentiable_function<LossFunction,
+                                   successful_predict_result_t<Network, Input>,
+                                   Target>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
                         LossFunction loss_function) -> auto {
@@ -121,10 +121,10 @@ export template <class Network, class BatchInput, class BatchTarget,
                predict(std::declval<Network>(), std::declval<BatchInput>())
              } -> batch_output<last_layer_t<Network>>;
            } &&
-           (mathematical_function<
+           (differentiable_function<
                 LossFunction, successful_predict_result_t<Network, BatchInput>,
                 BatchTarget> ||
-            mathematical_function<
+            differentiable_function<
                 LossFunction,
                 std::ranges::range_value_t<
                     successful_predict_result_t<Network, BatchInput>>,

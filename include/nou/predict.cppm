@@ -725,4 +725,39 @@ concept mathematical_function =
     std::invocable<T, Args...> &&
     !std::same_as<std::invoke_result_t<T, Args...>, void>;
 
+/**
+ * @brief Specifies that a type is a differentiable mathematical function.
+ *
+ * The concept `differentiable_function<T, Args...>` specifies that `T` is a
+ * mathematical function and provides a derivative function `df` that can be
+ * invoked with the same argument types `Args...`.
+ *
+ * ### Syntactic requirements
+ * Let `t` be an instance of type `T`.
+ * `differentiable_function<T, Args...>` is satisfied only if:
+ * - `mathematical_function<T, Args...>` is satisfied
+ * - `t.df(args...)` is a valid expression and returns a non-void result
+ *
+ * ### Example
+ * ```cpp
+ * struct my_function {
+ *   double operator()(double x) const { return x * x; }
+ *   double df(double x) const { return 2 * x; }
+ * };
+ * static_assert(nou::differentiable_function<my_function, double>);
+ * ```
+ *
+ * @tparam T The type to check.
+ * @tparam Args The argument types for invocation.
+ *
+ * @see mathematical_function for the base function requirements.
+ */
+export template <class T, class... Args>
+concept differentiable_function =
+    mathematical_function<T, Args...> && requires(T func, Args... args) {
+      { func.df(args...) };
+    } && !requires(T func, Args... args) {
+      { func.df(args...) } -> std::same_as<void>;
+    };
+
 }  // namespace nou
