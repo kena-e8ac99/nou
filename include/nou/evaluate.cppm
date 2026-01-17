@@ -31,6 +31,13 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
     if (size == 0) {
       return value_type{0};
     }
+    auto total_loss = []() -> value_type {
+      if constexpr (std::is_arithmetic_v<value_type>) {
+        return value_type{0};
+      } else {
+        return value_type{};
+      }
+    }();
 
     if !consteval {
       if constexpr (std::ranges::forward_range<Output> &&
@@ -40,9 +47,9 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
                         std::ranges::range_value_t<std::remove_cvref_t<Output>>,
                         std::ranges::range_value_t<
                             std::remove_cvref_t<Target>>>) {
-        auto total_loss = std::transform_reduce(
+        total_loss = std::transform_reduce(
             std::execution::par_unseq, std::ranges::begin(output),
-            std::ranges::end(output), std::ranges::begin(target), value_type{0},
+            std::ranges::end(output), std::ranges::begin(target), total_loss,
             std::plus<>{}, [&](auto&& output, auto&& target) -> value_type {
               return loss_function(std::forward<decltype(output)>(output),
                                    std::forward<decltype(target)>(target));
@@ -51,9 +58,9 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
       }
     }
 
-    auto total_loss = std::transform_reduce(
+    total_loss = std::transform_reduce(
         std::ranges::begin(output), std::ranges::end(output),
-        std::ranges::begin(target), value_type{0}, std::plus<>{},
+        std::ranges::begin(target), total_loss, std::plus<>{},
         [&](auto&& output, auto&& target) -> value_type {
           return loss_function(std::forward<decltype(output)>(output),
                                std::forward<decltype(target)>(target));
