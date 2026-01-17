@@ -153,7 +153,7 @@ constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
 }
 
 export template <class Network, class BatchInput, class BatchTarget,
-                 class LossFunction>
+                 class LossFunction, class... Metrics>
   requires sequential_network<std::remove_cvref_t<Network>> &&
            batch_input<BatchInput, first_layer_t<Network>> &&
            std::ranges::input_range<BatchTarget> &&
@@ -173,14 +173,26 @@ export template <class Network, class BatchInput, class BatchTarget,
                 LossFunction,
                 std::ranges::range_value_t<
                     successful_predict_result_t<Network, BatchInput>>,
-                std::ranges::range_value_t<std::remove_cvref_t<BatchTarget>>>)
+                std::ranges::range_value_t<
+                    std::remove_cvref_t<BatchTarget>>>) &&
+           ((mathematical_function<
+                 Metrics, successful_predict_result_t<Network, BatchInput>,
+                 BatchTarget> ||
+             mathematical_function<
+                 Metrics,
+                 std::ranges::range_value_t<
+                     successful_predict_result_t<Network, BatchInput>>,
+                 std::ranges::range_value_t<
+                     std::remove_cvref_t<BatchTarget>>>) &&
+            ...)
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto evaluate(Network&& network, BatchInput&& input,
-                        BatchTarget&& target, LossFunction loss_function)
-    -> auto {
-  return evaluate_impl(
-      std::forward<Network>(network), std::forward<BatchInput>(input),
-      std::forward<BatchTarget>(target), std::move(loss_function));
+                        BatchTarget&& target, LossFunction loss_function,
+                        Metrics... metrics) -> auto {
+  return evaluate_impl(std::forward<Network>(network),
+                       std::forward<BatchInput>(input),
+                       std::forward<BatchTarget>(target),
+                       std::move(loss_function), std::move(metrics)...);
 }
 
 }  // namespace nou
