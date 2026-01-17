@@ -13,6 +13,8 @@ export import nou.predict;
 
 namespace nou {
 
+// Internal helper: Calls the loss function(s)/metric(s) with the given output
+// and target.
 template <class Output, class Target, class LossFunction>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto call_loss_function(Output&& output, Target&& target,
@@ -60,6 +62,7 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
   }
 }
 
+// Internal helper: Variadic call to multiple loss functions / metrics.
 template <class Output, class Target, class... Functions>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto call_loss_function(Output&& output, Target&& target,
@@ -75,6 +78,7 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
   }
 }
 
+// Internal helper: Implementation of the evaluate function template.
 template <class Network, class Input, class Target, class... Functions>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto evaluate_impl(Network&& network, Input&& input, Target&& target,
