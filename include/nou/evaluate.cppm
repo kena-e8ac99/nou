@@ -60,13 +60,28 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
   }
 }
 
-template <class Network, class Input, class Target, class LossFunction>
+template <class Output, class Target, class... Functions>
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+constexpr auto call_loss_function(Output&& output, Target&& target,
+                                  Functions... functions) -> auto {
+  if constexpr (sizeof...(functions) == 1) {
+    return call_loss_function(std::forward<Output>(output),
+                              std::forward<Target>(target),
+                              std::move(functions)...);
+  } else {
+    return std::tuple{call_loss_function(std::forward<Output>(output),
+                                         std::forward<Target>(target),
+                                         std::move(functions))...};
+  }
+}
+
+template <class Network, class Input, class Target, class... Functions>
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto evaluate_impl(Network&& network, Input&& input, Target&& target,
-                             LossFunction loss_function) -> auto {
+                             Functions... functions) -> auto {
   using successful_output_type = decltype(call_loss_function(
       std::declval<successful_predict_result_t<Network, Input>>(),
-      std::forward<Target>(target), loss_function));
+      std::forward<Target>(target), functions...));
   auto output =
       predict(std::forward<Network>(network), std::forward<Input>(input));
 
@@ -78,14 +93,15 @@ constexpr auto evaluate_impl(Network&& network, Input&& input, Target&& target,
     return std::expected<successful_output_type, computation_error>{
         call_loss_function(std::move(output).value(),
                            std::forward<Target>(target),
-                           std::move(loss_function))};
+                           std::move(functions)...)};
   } else {
     return call_loss_function(std::move(output), std::forward<Target>(target),
-                              std::move(loss_function));
+                              std::move(functions)...);
   }
 }
 
-export template <class Network, class Input, class Target, class LossFunction>
+export template <class Network, class Input, class Target, class LossFunction,
+                 class... Metrics>
   requires sequential_network<std::remove_cvref_t<Network>> &&
            input<Input, first_layer_t<Network>> &&
            compatible_extents_with<
@@ -98,13 +114,17 @@ export template <class Network, class Input, class Target, class LossFunction>
            } &&
            differentiable_function<LossFunction,
                                    successful_predict_result_t<Network, Input>,
-                                   Target>
+                                   Target> &&
+           (mathematical_function<
+                Metrics, successful_predict_result_t<Network, Input>, Target> &&
+            ...)
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
-                        LossFunction loss_function) -> auto {
+                        LossFunction loss_function, Metrics... metrics)
+    -> auto {
   return evaluate_impl(std::forward<Network>(network),
                        std::forward<Input>(input), std::forward<Target>(target),
-                       std::move(loss_function));
+                       std::move(loss_function), std::move(metrics)...);
 }
 
 export template <class Network, class BatchInput, class BatchTarget,

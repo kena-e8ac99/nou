@@ -134,6 +134,12 @@ constexpr nou::layer auto layer_input2_output3_errorable_without_error =
           std::expected<std::array<double, 3>, nou::computation_error>>{
         std::array<double, 3>{4.0, 5.0, 6.0}};
 
+constexpr auto expected_metrics1 = 1.0;
+constexpr auto metrics1 = []([[maybe_unused]] const auto& output,
+                             [[maybe_unused]] const auto& target) -> double {
+  return expected_metrics1;
+};
+
 }  // namespace
 
 auto main() -> int {  // NOLINT(bugprone-exception-escape)
@@ -330,6 +336,27 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     constexpr std::array<std::array<double, 3>, 0> empty_batch_target{};
     static_assert(nou::evaluate(network, empty_batch_input, empty_batch_target,
                                 loss_function1) == expected_loss1);
+  }
+
+  // --- Test that evaluate works with 1 loss function and 1 metrics ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    constexpr auto result =
+        nou::evaluate(network, input1, target1, loss_function1, metrics1);
+    static_assert(std::get<0>(result) == expected_loss1);
+    static_assert(std::get<1>(result) == expected_metrics1);
+  }
+
+  // --- Test that evaluate works with 1 loss function and multiple metrics ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    constexpr auto result = nou::evaluate(network, input1, target1,
+                                          loss_function1, metrics1, metrics1);
+    static_assert(std::get<0>(result) == expected_loss1);
+    static_assert(std::get<1>(result) == expected_metrics1);
+    static_assert(std::get<2>(result) == expected_metrics1);
   }
 
   return 0;
