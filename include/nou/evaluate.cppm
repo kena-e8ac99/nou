@@ -27,10 +27,6 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
         std::ranges::range_value_t<std::remove_cvref_t<Output>>{},
         std::ranges::range_value_t<std::remove_cvref_t<Target>>{}));
 
-    auto size = std::ranges::size(output);
-    if (size == 0) {
-      return value_type{0};
-    }
     auto total_loss = []() -> value_type {
       if constexpr (std::is_arithmetic_v<value_type>) {
         return value_type{0};
@@ -38,6 +34,11 @@ constexpr auto call_loss_function(Output&& output, Target&& target,
         return value_type{};
       }
     }();
+
+    auto size = std::ranges::size(output);
+    if (size == 0) {
+      return total_loss;
+    }
 
     if !consteval {
       if constexpr (std::ranges::forward_range<Output> &&
