@@ -84,7 +84,7 @@ constexpr auto evaluate_impl(Network&& network, Input&& input, Target&& target,
                              Functions... functions) -> auto {
   using successful_output_type = decltype(call_loss_function(
       std::declval<successful_predict_result_t<Network, Input>>(),
-      std::forward<Target>(target), functions...));
+      std::forward<Target>(target), std::move(functions)...));
   auto output =
       predict(std::forward<Network>(network), std::forward<Input>(input));
 
