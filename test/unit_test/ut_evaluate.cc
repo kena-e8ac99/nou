@@ -1,12 +1,8 @@
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
-#include <execution>
 #include <expected>
-#include <iostream>
-#include <limits>
 #include <mdspan>
 #include <ranges>
 #include <span>
@@ -322,9 +318,8 @@ auto main() -> int {
     auto loss_function = loss_function_not_compatible_with_batch_mutable_3;
     nou::evaluate(network, batch_input1, batch_target1, loss_function);
     // NOLINTNEXTLINE
-    // assert(std::abs(nou::evaluate(network, batch_input1, batch_target1,
-    //                              loss_function) -
-    //                expected_loss1) < std::numeric_limits<double>::epsilon());
+    assert(nou::evaluate(network, batch_input1, batch_target1, loss_function) ==
+           expected_loss1);
   }
 
   // --- Test that evaluate works with empty batch input/target ---
