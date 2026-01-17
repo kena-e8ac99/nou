@@ -254,7 +254,7 @@ export template <class Network, class Input, class Target, class... Metrics>
              {
                predict(std::declval<Network>(), std::declval<Input>())
              } -> output<last_layer_t<Network>>;
-           } &&
+           } && (sizeof...(Metrics) >= 1) &&
            (mathematical_function<
                 Metrics, successful_predict_result_t<Network, Input>, Target> &&
             ...) &&
@@ -456,7 +456,7 @@ export template <class Network, class BatchInput, class BatchTarget,
              {
                predict(std::declval<Network>(), std::declval<BatchInput>())
              } -> batch_output<last_layer_t<Network>>;
-           } &&
+           } && (sizeof...(Metrics) >= 1) &&
            ((mathematical_function<
                  Metrics, successful_predict_result_t<Network, BatchInput>,
                  BatchTarget> ||

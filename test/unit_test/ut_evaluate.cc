@@ -421,5 +421,47 @@ auto main() -> int {  // NOLINT(bugprone-exception-escape)
     static_assert(std::get<1>(result) == expected_metrics1);
   }
 
+  // --- Test that compile fails if metrics function call is invalid ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    static_assert(
+        compile_fail_evaluate<decltype(network), decltype(input1),
+                              decltype(target1), decltype(loss_function1),
+                              // metrics function with incorrect signature
+                              decltype([](auto&&) -> void {})>);
+  }
+
+  // --- Test that compile fails if metrics function call is invalid in
+  //     batch ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    static_assert(
+        compile_fail_evaluate<decltype(network), decltype(batch_input1),
+                              decltype(batch_target1), decltype(loss_function1),
+                              // metrics function with incorrect signature
+                              decltype([](auto&&) -> void {})>);
+  }
+
+  // --- Test that compile fails if no loss function and no metrics are
+  //     provided ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    static_assert(compile_fail_evaluate<decltype(network), decltype(input1),
+                                        decltype(target1)>);
+  }
+
+  // --- Test that compile fails if no loss function and no metrics are
+  //     provided in batch ---
+  {
+    constexpr nou::sequential_network auto network =
+        nou::make_network(layer_input1_output2, layer_input2_output3);
+    static_assert(
+        compile_fail_evaluate<decltype(network), decltype(batch_input1),
+                              decltype(batch_target1)>);
+  }
+
   return 0;
 }
