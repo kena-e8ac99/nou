@@ -133,7 +133,8 @@ constexpr auto evaluate_impl(Network&& network, Input&& input, Target&& target,
  *
  * // Multiple metrics case (returns tuple of loss and metrics)
  * auto [loss, accuracy, precision] =
- *     nou::evaluate(network, input, target, loss_function, metric1, metric2);
+ *     nou::evaluate(network, input, target, loss_function, accuracy_metric,
+ *                   precision_metric);
  * ```
  *
  * @tparam Network The type of the sequential network. This type must model
@@ -215,7 +216,7 @@ constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
  *
  * // Multiple metrics case (returns tuple)
  * auto [accuracy, precision] =
- *     nou::evaluate(network, input, target, metric1, metric2);
+ *     nou::evaluate(network, input, target, accuracy_metric, precision_metric);
  * ```
  *
  * @tparam Network The type of the sequential network. This type must model
