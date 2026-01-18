@@ -1,33 +1,49 @@
 # Copilot Instructions for `nou` Project
 
 ## What this project is
-- Modern C++23 compile-time neural network library built with modules
-- Zero-overhead types: layers may return `T` or `std::expected<T, computation_error>`; `predict()` returns plain `T` only when all layers are error-free
+`nou` is a C++23 compile-time neural network library built with modules. It aims to provide a modern, efficient, and type-safe neural network functionality.
 
 ## Modules (names and roles)
-- `nou.core` ([include/nou/core.cppm](../include/nou/core.cppm)): concepts for `layer`, `sequential_network`, connectivity, `build` CPO, `make_network`, `first_layer_t`, `last_layer_t`; shapes use `std::extents`
-- `nou.predict` ([include/nou/predict.cppm](../include/nou/predict.cppm)): re-exports core; adds `computation_error`, `computation_errorable`, `input`/`output`/`batch_input`/`batch_output` concepts, `propagate` CPO, `predict` (single + batch)
-- `nou` ([include/nou/nou.cppm](../include/nou/nou.cppm)): umbrella re-export of `nou.predict`
+- `nou.core` ([include/nou/core.cppm](../include/nou/core.cppm))
+  - Provide core neural network building functionality:
+    - Concepts: `layer`, `sequential_network`, utility concepts for connectivity; uses `std::extents` for shape representation
+    - Free functions: `make_network`
+    - CPOs: `build`
+- `nou.predict` ([include/nou/predict.cppm](../include/nou/predict.cppm))
+  - Provide prediction-related functionality:
+    - Types: `computation_error`
+    - Concepts:
+      - errorable output: `computation_errorable`
+      - input and output concepts for both single and batch versions: `input`, `output`, `batch_input`, `batch_output` and other utilities
+      - mathematical function concepts: `mathematical_function`, `differentiable_function`
+    - Free functions: `predict` (single and batch versions)
+    - CPOs: `propagate` (single and batch versions)
+- `nou.evaluate` ([include/nou/evaluate.cppm](../include/nou/evaluate.cppm))
+  - Provide evaluation-related functionality:
+    - Free functions: `evaluate` (single and batch versions)
+- `nou` ([include/nou/nou.cppm](../include/nou/nou.cppm))
+  - Umbrella module re-exporting all functionality
 
 ## Constraints the assistant must respect
-- Use `std::extents` (no custom shape types); layers expose `real_type`, `input_extents`, `output_extents`
-- Enforce concepts via `requires`; prefer `std::expected<T, computation_error>` for fallible paths
-- Modules: keep helpers internal (no accidental `export`); use `export import` for re-exports
-- Avoid non-ASCII unless already present; 80-col, 2-space indent per `.clang-format`
-
-## Build/testing hints (only what’s special)
-- C++23, modules enabled; clang++ with libc++ may need `-fexperimental-library`
-- Warnings as errors; clang-tidy enabled (see `.clang-tidy`)
-- Tests live in [test/unit_test](../test/unit_test/); primarily `static_assert` compile-time tests
-
-## Test naming pattern
-- Comment headers: `// --- Test that <behavior> ---`, wrap long names onto a second indented line
-
-## Common pitfalls to avoid
-- Do not reintroduce custom `shape<N>`; always use `std::extents`
-- Keep batch and single-input concepts distinct (`input` vs `batch_input`)
-- Preserve `std::expected` error propagation semantics
-
-## When adding APIs
-- Provide concise Doxygen in standard-library wording
-- Keep exports minimal; helper utilities stay internal
+- Modules:
+  - Do not introduce circular dependencies
+  - Keep public API minimal; only export what is necessary
+- Types:
+  - Use `std::extents` (no custom shape types); layers expose `real_type`, `input_extents`, `output_extents`
+- Concepts:
+  - Distinguish single vs batch input/output concepts
+  - Use `requires` clauses to enforce constraints, avoid SFINAE
+- Error handling:
+  - Use `std::expected<T, computation_error>` if and only if fallible operation. Otherwise, use direct types
+- Testing (in [test/](../test/)):
+  - Prefer `static_assert` compile-time tests where possible
+  - Separate tests by enclosing scope blocks with comment headers describing test name
+  - Test naming pattern:
+    - Use `// --- Test that [subject] [predicate] [conditions] ---`
+      - subject: test target (function, concept, behavior)
+      - predicate: expected behavior (e.g., "returns", "accepts", "rejects")
+      - conditions: optional, any specific conditions
+    - Wrap long names onto a second indented line (only last line ends with `---`)
+- Documentation:
+  - Follow standard-library wording and style
+  - Use Doxygen style comments for all public API
