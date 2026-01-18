@@ -14,7 +14,8 @@
     - Types: `computation_error`
     - Concepts:
       - errorable output: `computation_errorable`
-      - input and output concepts for both single and batch versions: `input`, `output`, `batch_input`, `batch_output` and other utilities
+      - shape compatibility: `compatible_extents_with` (validates type compatibility with layer `std::extents`)
+      - input and output concepts for both single and batch versions: `input`, `output`, `batch_input`, `batch_output` (built on top of `compatible_extents_with`) and other utilities
       - mathematical function concepts: `mathematical_function`, `differentiable_function`
     - Free functions: `predict` (single and batch versions)
     - CPOs: `propagate` (single and batch versions)
