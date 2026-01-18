@@ -36,7 +36,7 @@
 - Error handling:
   - Use `std::expected<T, computation_error>` if and only if fallible operation. Otherwise, use direct types
 - Testing (in [test/](../test/)):
-  - Prefer `static_assert` compile-time tests where possible
+  - Use `static_assert` compile-time tests wherever possible. For runtime tests, use `assert`; do not use any testing frameworks
   - Separate tests by enclosing scope blocks with comment headers describing test name
   - Test naming pattern:
     - Use `// --- Test that [subject] [predicate] [conditions] ---`
