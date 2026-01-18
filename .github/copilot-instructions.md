@@ -6,7 +6,7 @@
 ## Modules (names and roles)
 - `nou.core` ([include/nou/core.cppm](../include/nou/core.cppm))
   - Provide core neural network building functionality:
-    - Concepts: `layer`, `sequential_network`, utility concepts for connectivity; uses `std::extents` for shape representation
+    - Concepts: `layer`, `sequential_network`; uses `std::extents` for shape representation
     - Free functions: `make_network`
     - CPOs: `build`
 - `nou.predict` ([include/nou/predict.cppm](../include/nou/predict.cppm))
