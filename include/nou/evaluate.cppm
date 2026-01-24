@@ -112,6 +112,89 @@ constexpr auto evaluate_impl(Network&& network, Input&& input, Target&& target,
 }
 
 /**
+ * @brief Specifies that a type is compatible target for single input.
+ *
+ * The concept `target<T, Network, Input>` specifies that the type `T` is a
+ * compatible target type for the given `Network` and single `Input`.
+ *
+ * ### Semantic requirements
+ * `target<T, Network, Input>` is modeled only if:
+ * - `Network` models `sequential_network`
+ * - `Input` models `input<first_layer_t<Network>>`
+ * - `T` satisfies `compatible_extents_with<T, last_layer_t<Network>::real_type,
+ *   last_layer_t<Network>::output_extents>`
+ *
+ * ### Example
+ * ```cpp
+ * using my_network = std::tuple<layer1, layer2>;
+ * using my_input = std::array<float, 3>;
+ * using my_target = std::array<float, 5>;
+ * static_assert(nou::target<my_target, my_network, my_input>);
+ * ```
+ *
+ * @tparam T The target type to be checked.
+ * @tparam Network The type of the sequential network. This type must model
+ * `sequential_network`.
+ * @tparam Input The type of the single input. This type must model
+ * `input<first_layer_t<Network>>`.
+ *
+ * @see compatible_extents_with for shape matching rules.
+ * @see sequential_network for the requirements on the Network type.
+ * @see input for the requirements on the Input type.
+ */
+export template <class T, class Network, class Input>
+concept target =
+    sequential_network<std::remove_cvref_t<Network>> &&
+    input<Input, first_layer_t<Network>> &&
+    compatible_extents_with<T, typename last_layer_t<Network>::real_type,
+                            decltype(auto(
+                                last_layer_t<Network>::output_extents))>;
+
+/**
+ * @brief Specifies that a type is compatible target for batch input.
+ *
+ * The concept `batch_target<T, Network, BatchInput>` specifies that the type
+ * `T` is a compatible target type for the given `Network` and batch
+ * `BatchInput`.
+ *
+ * ### Semantic requirements
+ * `batch_target<T, Network, BatchInput>` is modeled only if:
+ * - `Network` models `sequential_network`
+ * - `BatchInput` models `batch_input<first_layer_t<Network>>`
+ * - `T` models `std::ranges::input_range`
+ * - Each element of `T` satisfies `compatible_extents_with<Element,
+ *   last_layer_t<Network>::real_type, last_layer_t<Network>::output_extents>`
+ *
+ * ### Example
+ * ```cpp
+ * using my_network = std::tuple<layer1, layer2>;
+ * using my_batch_input = std::vector<std::array<float, 3>>;
+ * using my_batch_target = std::vector<std::array<float, 5>>;
+ * static_assert(
+ *     nou::batch_target<my_batch_target, my_network, my_batch_input>);
+ * ```
+ *
+ * @tparam T The target type to be checked.
+ * @tparam Network The type of the sequential network. This type must model
+ * `sequential_network`.
+ * @tparam BatchInput The type of the batch input. This type must model
+ * `batch_input<first_layer_t<Network>>`.
+ *
+ * @see compatible_extents_with for shape matching rules.
+ * @see sequential_network for the requirements on the Network type.
+ * @see batch_input for the requirements on the BatchInput type.
+ */
+export template <class T, class Network, class BatchInput>
+concept batch_target =
+    sequential_network<std::remove_cvref_t<Network>> &&
+    batch_input<BatchInput, first_layer_t<Network>> &&
+    std::ranges::input_range<T> &&
+    compatible_extents_with<std::ranges::range_value_t<std::remove_cvref_t<T>>,
+                            typename last_layer_t<Network>::real_type,
+                            decltype(auto(
+                                last_layer_t<Network>::output_extents))>;
+
+/**
  * @brief Evaluates a neural network with a single input using a differentiable
  * loss function and optional metrics.
  *
@@ -143,8 +226,7 @@ constexpr auto evaluate_impl(Network&& network, Input&& input, Target&& target,
  * @tparam Input The type of the single input. This type must model
  * `input<first_layer_t<Network>>`.
  * @tparam Target The type of the target output. This type must satisfy
- * `compatible_extents_with<Target, last_layer_t<Network>::real_type,
- * last_layer_t<Network>::output_extents>`.
+ * `target<Target, Network, Input>`.
  * @tparam LossFunction The type of the loss function. This type must model
  * `differentiable_function<LossFunction, Output, Target>` where `Output` is
  * the successful prediction result type.
@@ -171,9 +253,7 @@ export template <class Network, class Input, class Target, class LossFunction,
                  class... Metrics>
   requires sequential_network<std::remove_cvref_t<Network>> &&
            input<Input, first_layer_t<Network>> &&
-           compatible_extents_with<
-               Target, typename last_layer_t<Network>::real_type,
-               decltype(auto(last_layer_t<Network>::output_extents))> &&
+           target<Target, Network, Input> &&
            requires {
              {
                predict(std::declval<Network>(), std::declval<Input>())
@@ -224,9 +304,8 @@ constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
  * `sequential_network`.
  * @tparam Input The type of the single input. This type must model
  * `input<first_layer_t<Network>>`.
- * @tparam Target The type of the target output. This type must satisfy
- * `compatible_extents_with<Target, last_layer_t<Network>::real_type,
- * last_layer_t<Network>::output_extents>`.
+ * @tparam Target The type of the target output. This type must model
+ * `target<Target, Network, Input>`.
  * @tparam Metrics The types of the metric functions. Each type must model
  * `mathematical_function<Metric, Output, Target>` where `Output` is the
  * successful prediction result type. None of the metric functions can model
@@ -249,9 +328,7 @@ constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
 export template <class Network, class Input, class Target, class... Metrics>
   requires sequential_network<std::remove_cvref_t<Network>> &&
            input<Input, first_layer_t<Network>> &&
-           compatible_extents_with<
-               Target, typename last_layer_t<Network>::real_type,
-               decltype(auto(last_layer_t<Network>::output_extents))> &&
+           target<Target, Network, Input> &&
            requires {
              {
                predict(std::declval<Network>(), std::declval<Input>())
@@ -311,9 +388,7 @@ constexpr auto evaluate(Network&& network, Input&& input, Target&& target,
  * @tparam BatchInput The type of the batch input. This type must model
  * `batch_input<first_layer_t<Network>>`.
  * @tparam BatchTarget The type of the batch target. This type must model
- * `std::ranges::input_range` where each element satisfies
- * `compatible_extents_with<Element, last_layer_t<Network>::real_type,
- * last_layer_t<Network>::output_extents>`.
+ * `batch_target<BatchTarget, Network, BatchInput>`.
  * @tparam LossFunction The type of the loss function. This type must model
  * either `differentiable_function<LossFunction, BatchOutput, BatchTarget>` or
  * `differentiable_function<LossFunction, OutputElement, TargetElement>` where
@@ -342,11 +417,7 @@ export template <class Network, class BatchInput, class BatchTarget,
                  class LossFunction, class... Metrics>
   requires sequential_network<std::remove_cvref_t<Network>> &&
            batch_input<BatchInput, first_layer_t<Network>> &&
-           std::ranges::input_range<BatchTarget> &&
-           compatible_extents_with<
-               std::ranges::range_value_t<std::remove_cvref_t<BatchTarget>>,
-               typename last_layer_t<Network>::real_type,
-               decltype(auto(last_layer_t<Network>::output_extents))> &&
+           batch_target<BatchTarget, Network, BatchInput> &&
            requires {
              {
                predict(std::declval<Network>(), std::declval<BatchInput>())
@@ -421,9 +492,7 @@ constexpr auto evaluate(Network&& network, BatchInput&& input,
  * @tparam BatchInput The type of the batch input. This type must model
  * `batch_input<first_layer_t<Network>>`.
  * @tparam BatchTarget The type of the batch target. This type must model
- * `std::ranges::input_range` where each element satisfies
- * `compatible_extents_with<Element, last_layer_t<Network>::real_type,
- * last_layer_t<Network>::output_extents>`.
+ * `batch_target<BatchTarget, Network, BatchInput>`.
  * @tparam Metrics The types of the metric functions. Each type must model
  * either `mathematical_function<Metric, BatchOutput, BatchTarget>` or
  * `mathematical_function<Metric, OutputElement, TargetElement>` where
@@ -449,11 +518,7 @@ export template <class Network, class BatchInput, class BatchTarget,
                  class... Metrics>
   requires sequential_network<std::remove_cvref_t<Network>> &&
            batch_input<BatchInput, first_layer_t<Network>> &&
-           std::ranges::input_range<BatchTarget> &&
-           compatible_extents_with<
-               std::ranges::range_value_t<std::remove_cvref_t<BatchTarget>>,
-               typename last_layer_t<Network>::real_type,
-               decltype(auto(last_layer_t<Network>::output_extents))> &&
+           batch_target<BatchTarget, Network, BatchInput> &&
            requires {
              {
                predict(std::declval<Network>(), std::declval<BatchInput>())
