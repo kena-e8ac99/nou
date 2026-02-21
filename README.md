@@ -7,7 +7,7 @@
 
 ## Overview
 
-`nou` is a modern, compile-time neural network library written in C++23 with modules support. It provides a type-safe and efficient foundation for neural network functionality through static polymorphism and modern C++ features.
+`nou` is a modern, compile-time neural network library written in C++23 using modules. It provides a type-safe and efficient foundation for neural network functionality through static polymorphism and modern C++ features.
 The primary motivation behind `nou` is to explore the capabilities of C++ for building a neural network library that achieves the following goals:
 
 - **Compile-time computation**: Leverage C++23 features for static polymorphism and type safety
@@ -53,8 +53,9 @@ Re-exports all public functionality from the above modules.
 
 ### Requirements
 
-- C++23-capable compiler
-  - Clang 17+ (with `-stdlib=libc++` and `-fexperimental-library`)
+- C++23-capable compiler with modules support
+  - Clang 19 (tested in CI, with `-stdlib=libc++` and `-fexperimental-library`)
+  - GCC: current versions (e.g., GCC 14) are not yet supported due to incomplete `std::mdspan`
 - CMake 3.28+
 
 ### Build Instructions
@@ -120,7 +121,7 @@ The project maintains strict code quality standards:
 
 ## Development
 
-To never compromise constexpr library design, we prioritize the following development practices:
+To avoid compromising the constexpr design of the library, we prioritize the following development practices:
 
 - Use compile-time `static_assert` tests wherever possible
 
