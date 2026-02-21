@@ -55,9 +55,7 @@ Re-exports all public functionality from the above modules.
 ### Requirements
 
 - C++23-capable compiler
-  - GCC 13.1+
   - Clang 17+ (with `-stdlib=libc++` and `-fexperimental-library`)
-  - MSVC 2022+
 - CMake 3.28+
 
 ### Build Instructions
@@ -71,17 +69,6 @@ cmake --build build
 
 # Run tests (if top-level project)
 ctest --test-dir build
-```
-
-### Using with libc++
-
-For Clang with libc++ backend:
-
-```bash
-cmake -B build -S . \
-  -DCMAKE_CXX_COMPILER=clang++ \
-  -DCMAKE_CXX_STANDARD=23
-cmake --build build
 ```
 
 ## Testing
@@ -119,7 +106,6 @@ Test files are located in [test/unit_test/](test/unit_test/) and cover:
 │       ├── ut_make_network.cc  # Network creation tests
 │       ├── ut_prediction.cc    # Prediction tests
 │       ├── ut_evaluate.cc      # Evaluation tests
-│       └── ut_fit.cc           # Model fitting tests
 └── README.md                   # This file
 ```
 
@@ -135,7 +121,7 @@ Test files are located in [test/unit_test/](test/unit_test/) and cover:
 
 The project maintains strict code quality standards:
 
-- Compile-time checks with `-Wall -Wextra -Wpedantic -Werror -Wshadow` (GCC/Clang)
+- Compile-time checks with `-Wall -Wextra -Wpedantic -Werror -Wshadow`
 - Comprehensive static assertions for compile-time validation
 - Runtime assertions for runtime verification
 - Doxygen-style documentation for all public API
