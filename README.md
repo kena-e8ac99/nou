@@ -8,8 +8,7 @@
 ## Overview
 
 `nou` is a modern, compile-time neural network library written in C++23 with modules support. It provides a type-safe and efficient foundation for neural network functionality through static polymorphism and modern C++ features.
-
-The library is designed with the following goals:
+The primary motivation behind `nou` is to explore the capabilities of C++ for building a neural network library that achieves the following goals:
 
 - **Compile-time computation**: Leverage C++23 features for static polymorphism and type safety
 - **Modular architecture**: Clean separation of concerns across specialized modules
@@ -66,9 +65,6 @@ cmake -B build -S . -DCMAKE_CXX_STANDARD=23
 
 # Build the library
 cmake --build build
-
-# Run tests (if top-level project)
-ctest --test-dir build
 ```
 
 ## Testing
@@ -77,10 +73,7 @@ The project includes comprehensive unit tests using compile-time assertions wher
 
 ```bash
 # Run all tests
-cmake --build build --target test
-
-# Or using CTest
-ctest --test-dir build --verbose
+ctest --test-dir build
 ```
 
 Test files are located in [test/unit_test/](test/unit_test/) and cover:
@@ -88,7 +81,6 @@ Test files are located in [test/unit_test/](test/unit_test/) and cover:
 - Network creation and building
 - Prediction (single and batch)
 - Evaluation metrics
-- Model fitting
 
 ## Project Structure
 
@@ -113,7 +105,7 @@ Test files are located in [test/unit_test/](test/unit_test/) and cover:
 
 1. **Type Safety**: Extensive use of concepts and `requires` clauses to enforce constraints at compile-time
 2. **Shape Representation**: Uses `std::extents` (std::mdspan-compatible) for flexible shape specification
-3. **Error Handling**: Employs `std::expected<T, computation_error>` for fallible operations
+3. **Error Handling**: Employs `std::expected<T, computation_error>` for fallible operations to support compile-time and type-safe error handling without exceptions
 4. **Minimal API**: Public API is kept minimal; only necessary functionality is exported
 5. **No Circular Dependencies**: Module structure strictly avoids circular imports
 
@@ -128,13 +120,9 @@ The project maintains strict code quality standards:
 
 ## Development
 
-When contributing or extending this library, please adhere to:
+To never compromise constexpr library design, we prioritize the following development practices:
 
 - Use compile-time `static_assert` tests wherever possible
-- Use `assert` for runtime tests (no external testing frameworks)
-- Follow standard library wording and conventions in documentation
-- Keep modules free of circular dependencies
-- Use `std::extents` for all shape specifications
 
 ## License
 
