@@ -62,7 +62,7 @@ Re-exports all public functionality from the above modules.
 
 ```bash
 # Configure the project
-cmake -B build -S . -DCMAKE_CXX_STANDARD=23
+cmake -B build -G Ninja -S . -DCMAKE_CXX_STANDARD=23
 
 # Build the library
 cmake --build build
