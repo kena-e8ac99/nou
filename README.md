@@ -92,7 +92,7 @@ Test files are located in [test/unit_test/](test/unit_test/) and cover:
 
 ## Project Structure
 
-```
+```text
 .
 ├── CMakeLists.txt              # Main CMake configuration
 ├── include/
